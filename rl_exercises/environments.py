@@ -140,8 +140,7 @@ class MarsRover(gym.Env):
         follow = self.rng.random() < p
         a_used = action if follow else 1 - action
 
-        delta = -1 if a_used == 0 else 1
-        self.position = max(0, min(self.states[-1], self.position + delta))
+        self.position = self.get_next_state(self.position, a_used)
 
         reward = float(self.rewards[self.position])
         terminated = False
@@ -164,9 +163,33 @@ class MarsRover(gym.Env):
         R = np.zeros((nS, nA), dtype=float)
         for s in range(nS):
             for a in range(nA):
-                nxt = max(0, min(nS - 1, s + (-1 if a == 0 else 1)))
+                nxt = self.get_next_state(s, a)
                 R[s, a] = float(self.rewards[nxt])
         return R
+
+    def get_next_state(self, state: int, action: int) -> int:
+        """
+        Get the next state index given current state and action, ignoring stochasticity.
+
+        Parameters
+        ----------
+        state : int
+            Current state index.
+        action : int
+            Action to take (0: left, 1: right).
+
+        Returns
+        -------
+        next_state : int
+            The next state index after taking action a in state s, ignoring stochasticity.
+        """
+        state, action = int(state), int(action)
+
+        if not self.action_space.contains(action):
+            raise RuntimeError(f"{action} is not a valid action (needs to be 0 or 1)")
+
+        delta = -1 if action == 0 else 1
+        return max(0, min(self.states[-1], state + delta))
 
     def get_transition_matrix(
         self,
@@ -195,11 +218,12 @@ class MarsRover(gym.Env):
         if S is None or A is None or P is None:
             S, A, P = self.states, self.actions, self.P
 
+        # TODO: Possible bug: If S,A that dont match the internal states/actions, the resulting T may not be correct, because "get_next_state" validated against the internal states/actions and overflows might occure.
         nS, nA = len(S), len(A)
         T = np.zeros((nS, nA, nS), dtype=float)
         for s in S:
             for a in A:
-                s_next = max(0, min(nS - 1, s + (-1 if a == 0 else 1)))
+                s_next = self.get_next_state(s, a)
                 T[s, a, s_next] = float(P[s, a])
         return T
 
