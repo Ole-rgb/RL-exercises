@@ -20,6 +20,8 @@ from rich import print as printr
 from rl_exercises.agent import AbstractAgent, RandomAgent
 from rl_exercises.agent.buffer import SimpleBuffer
 from rl_exercises.environments import MarsRover
+from rl_exercises.week_2 import PolicyIteration
+from rl_exercises.week_2.value_iteration import ValueIteration
 
 # from rl_exercises.week_4 import EpsilonGreedyPolicy as TabularEpsilonGreedyPolicy
 # from rl_exercises.week_4 import SARSAAgent
@@ -57,6 +59,13 @@ def train(cfg: DictConfig) -> float:
         return train_sb3(env, cfg)
     elif cfg.agent == "random":
         agent = RandomAgent(env)
+    elif cfg.agent == "policy_iteration":
+        agent = PolicyIteration(env)
+    elif cfg.agent == "value_iteration":
+        env = make_env(
+            cfg.env_name, {"transition_probabilities": np.ones((5, 2)) * 0.5}
+        )
+        agent = ValueIteration(env)
     else:
         # TODO: add your agent options here
         raise NotImplementedError

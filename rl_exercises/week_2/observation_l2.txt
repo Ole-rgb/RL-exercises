@@ -1,0 +1,16 @@
+What happens if you only have access to step() instead of the dynamics and reward?
+Do both methods still work? This setting will be what we'll work with for the rest of the semester.
+Briefly describe your observations in an observations_l2.txt file.
+
+- At the moment, the agent has access to both the transition dynamics and the reward model of the environment
+via self.T and self.R, which both of them use in their respective iteration loops.
+- At the moment, the update_agent function is called with batch argument which are sampled
+sarsa batches from the replay buffer, but internally it's completely ignored, and the buffer
+is also configured to store just one sarsa transition
+- Meaning, at the current configuration, with the current implementation for the respective
+iteration methods, it won't work if we prohibit the agents from accessing the env dynamics.
+- to make it work, the implementation has to be extended so that either it tries to approximate
+the env dynamics using the sarsa transitions that it sees.
+- the second option would be to make it learn by doing, which is more favourable as we are already passing
+the transiton batches to the update method, so in the update_agent, it can make use of these batched transitions
+that the agent sees while acting on the environment during training loop.

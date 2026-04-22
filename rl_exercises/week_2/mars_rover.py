@@ -7,7 +7,7 @@ from rich import print as printr
 from rl_exercises.environments import MarsRover
 
 env = MarsRover()
-actions = [0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0]
+actions = [0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1]
 
 states = []
 s, info = env.reset()
