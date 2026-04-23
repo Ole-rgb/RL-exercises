@@ -150,45 +150,53 @@ class MarsRover(gym.Env):
 
     def get_reward_per_action(self) -> np.ndarray:
         """
-        Return the reward function R[s, a] for each (state, action) pair.
+        Return the expected reward function R[s, a] for each (state, action) pair.
 
-        R[s, a] is the reward for the cell the rover would land in after taking action a in state s.
+        R[s, a] is the expected reward resulting from taking action a in state s,
+        accounting for the transition probabilities.
 
         Returns
         -------
         R : np.ndarray
-            A (num_states, num_actions) array of rewards.
+            A (num_states, num_actions) array of expected rewards.
         """
         nS, nA = self.observation_space.n, self.action_space.n
         R = np.zeros((nS, nA), dtype=float)
+        T = self.get_transition_matrix()
+
         for s in range(nS):
             for a in range(nA):
-                nxt = self.get_next_state(s, a)
-                R[s, a] = float(self.rewards[nxt])
+                expected_reward = 0.0
+                for next_s in range(nS):
+                    expected_reward += T[s, a, next_s] * self.rewards[next_s]
+                R[s, a] = float(expected_reward)
         return R
 
     def get_next_state(self, state: int, action: int) -> int:
         """
-        Get the next state index given current state and action, ignoring stochasticity.
+        Get the next state given a state and an action (assuming deterministic execution).
 
         Parameters
         ----------
         state : int
-            Current state index.
+            The current state.
         action : int
-            Action to take (0: left, 1: right).
+            The action to take.
 
         Returns
         -------
         next_state : int
-            The next state index after taking action a in state s, ignoring stochasticity.
+            The resulting state.
         """
+        # TODO: Implement the environment dynamics to determine the next state
+
         state, action = int(state), int(action)
 
         if not self.action_space.contains(action):
             raise RuntimeError(f"{action} is not a valid action (needs to be 0 or 1)")
 
         delta = -1 if action == 0 else 1
+
         return max(0, min(self.states[-1], state + delta))
 
     def get_transition_matrix(
@@ -198,7 +206,7 @@ class MarsRover(gym.Env):
         P: np.ndarray | None = None,
     ) -> np.ndarray:
         """
-        Construct a deterministic transition matrix T[s, a, s'].
+        Construct a transition matrix T[s, a, s'].
 
         Parameters
         ----------
@@ -218,13 +226,15 @@ class MarsRover(gym.Env):
         if S is None or A is None or P is None:
             S, A, P = self.states, self.actions, self.P
 
-        # TODO: Possible bug: If S,A that dont match the internal states/actions, the resulting T may not be correct, because "get_next_state" validated against the internal states/actions and overflows might occure.
+        # Determine the transition matrix using the get_next_state function
+        # and the transition probabilities P.
         nS, nA = len(S), len(A)
         T = np.zeros((nS, nA, nS), dtype=float)
         for s in S:
             for a in A:
                 s_next = self.get_next_state(s, a)
                 T[s, a, s_next] = float(P[s, a])
+
         return T
 
     def render(self, mode: str = "human"):
