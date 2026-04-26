@@ -64,14 +64,16 @@ class ValueIteration(AbstractAgent):
         if self.policy_fitted:
             return
 
-        # TODO: Call value_iteration() with the MDP components
-        V_opt, pi_opt = None, None  # placeholder
+        # Call value_iteration() with the MDP components
+        V_opt, pi_opt = value_iteration(
+            T=self.T, R_sa=self.R_sa, gamma=self.gamma, seed=self.seed
+        )
 
         self.V = V_opt
         self.pi = pi_opt
         printr("Converged V:", self.V)
         printr("Derived policy π:", self.pi)
-        # self.policy_fitted = True # TODO: uncomment this after implementation
+        self.policy_fitted = True
 
     def predict_action(
         self,
@@ -79,12 +81,28 @@ class ValueIteration(AbstractAgent):
         info: dict | None = None,
         evaluate: bool = False,
     ) -> tuple[int, dict]:
-        """Choose action = π(observation). Runs update if needed."""
+        """
+        Choose action = π(observation). Runs update if needed.
+
+        Parameters
+        ----------
+        observation : int
+            The current observation/state.
+        info : dict or None, optional
+            Additional info passed during prediction (unused).
+        evaluate : bool, optional
+            Evaluation mode toggle (unused here), by default False.
+
+        Returns
+        -------
+        tuple[int, dict]
+            The selected action and an empty info dictionary.
+        """
         if not self.policy_fitted:
             self.update_agent()
 
-        # TODO: Return action from learned policy
-        raise NotImplementedError("predict_action() is not implemented.")
+        # Return action from learned policy
+        return self.pi[observation], {}
 
 
 def value_iteration(
@@ -124,11 +142,29 @@ def value_iteration(
     """
     n_states, n_actions = R_sa.shape
     V = np.zeros(n_states, dtype=float)
-    # rng = np.random.default_rng(seed)  uncomment this
-    pi = None
+    rng = np.random.default_rng(seed)
+    pi = np.zeros(n_states, dtype=int)
 
-    # TODO: update V using the Q values until convergence
+    # update V using the Q values until convergence
+    Q_s = np.zeros(n_actions, dtype=float)
+    while True:
+        v_old = V.copy()
+        for s in range(n_states):
+            for a in range(n_actions):
+                sprime_probs = T[s, a, :]
+                Q_s[a] = R_sa[s, a] + gamma * np.sum(sprime_probs * V)
+            V[s] = np.max(Q_s)
 
-    # TODO: Extract the greedy policy from V and update pi
+        if np.max(np.abs(V - v_old)) < epsilon:
+            break
+
+    # Extract the greedy policy from V and update pi
+    for s in range(n_states):
+        for a in range(n_actions):
+            sprime_probs = T[s, a, :]
+            Q_s[a] = R_sa[s, a] + gamma * np.sum(sprime_probs * V)
+
+        optim_a = np.flatnonzero(Q_s == Q_s.max())
+        pi[s] = rng.choice(optim_a)
 
     return V, pi
