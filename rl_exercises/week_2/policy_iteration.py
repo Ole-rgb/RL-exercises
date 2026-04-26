@@ -164,16 +164,13 @@ def policy_evaluation(
 
     # implement Policy Evaluation for all states
     while True:
-        delta = 0
-
+        v_old = V.copy()
         for s in range(nS):
-            v_old = V[s]
             a = pi[s]
             sprime_probs = T[s, a, :]
             V[s] = R_sa[s, a] + gamma * np.sum(sprime_probs * V)
-            delta = max(delta, abs(V[s] - v_old))
 
-        if delta < epsilon:
+        if np.max(np.abs(V - v_old)) < epsilon:
             break
 
     return V
@@ -247,14 +244,14 @@ def policy_iteration(
 
     # Combine evaluation and improvement in a loop.
     steps = 0
-    pi_old = pi
-    while steps == 0 or not np.array_equal(pi_old, pi):
-        pi_old = pi
+
+    while True:
+        pi_old = pi.copy()
         V = policy_evaluation(pi, T, R_sa, gamma, epsilon)
         Q, pi = policy_improvement(V, T, R_sa, gamma)
         steps += 1
-
-    return (Q, pi, steps)
+        if np.array_equal(pi_old, pi):
+            return (Q, pi, steps)
 
 
 if __name__ == "__main__":
