@@ -145,3 +145,6 @@ rl_exercises/week_2/figures/mars_rover.png
 
 # Results
 results/
+
+# MacOS
+.DS_Store
