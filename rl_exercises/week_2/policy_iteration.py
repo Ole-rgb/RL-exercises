@@ -85,15 +85,19 @@ class PolicyIteration(AbstractAgent):
         tuple[int, dict]
             The selected action and an empty info dictionary.
         """
-        # TODO: Return the action according to current policy
-        raise NotImplementedError("predict_action() is not implemented.")
+        # Return the action according to current policy
+        return (self.pi[observation], {})
 
     def update_agent(self, *args: tuple, **kwargs: dict) -> None:
         """Run policy iteration to compute the optimal policy and state-action values."""
         if not self.policy_fitted:
-            # TODO: Call policy iteration with initialized values
+            # Call policy iteration with initialized values
             printr("Initial policy: ", self.pi)
-            raise NotImplementedError("update_agent() is not implemented.")
+            self.Q, self.pi, self.steps = policy_iteration(
+                Q=self.Q,
+                pi=self.pi,
+                MDP=(self.S, self.A, self.T, self.R_sa, self.gamma),
+            )
             printr("Q: ", self.Q)
             printr("Final policy: ", self.pi)
             printr("Policy iteration steps:", self.steps)
@@ -158,7 +162,19 @@ def policy_evaluation(
     nS = R_sa.shape[0]
     V = np.zeros(nS)
 
-    # TODO: implement Policy Evaluation for all states
+    # implement Policy Evaluation for all states
+    while True:
+        delta = 0
+
+        for s in range(nS):
+            v_old = V[s]
+            a = pi[s]
+            sprime_probs = T[s, a, :]
+            V[s] = R_sa[s, a] + gamma * np.sum(sprime_probs * V)
+            delta = max(delta, abs(V[s] - v_old))
+
+        if delta < epsilon:
+            break
 
     return V
 
@@ -191,7 +207,13 @@ def policy_improvement(
     nS, nA = R_sa.shape
     Q = np.zeros((nS, nA))
     pi_new = None
-    # TODO: implement Policy Improvement for all states
+
+    # implement Policy Improvement for all states
+    for s in range(nS):
+        for a in range(nA):
+            sprime_probs = T[s, a, :]
+            Q[s, a] = R_sa[s, a] + gamma * np.sum(sprime_probs * V)
+    pi_new = np.argmax(Q, axis=1)  # axis=1 is horizontal (e.g. choose one action (L,R))
 
     return Q, pi_new
 
@@ -223,7 +245,16 @@ def policy_iteration(
     """
     S, A, T, R_sa, gamma = MDP
 
-    # TODO: Combine evaluation and improvement in a loop.
+    # Combine evaluation and improvement in a loop.
+    steps = 0
+    pi_old = pi
+    while steps == 0 or not np.array_equal(pi_old, pi):
+        pi_old = pi
+        V = policy_evaluation(pi, T, R_sa, gamma, epsilon)
+        Q, pi = policy_improvement(V, T, R_sa, gamma)
+        steps += 1
+
+    return (Q, pi, steps)
 
 
 if __name__ == "__main__":
