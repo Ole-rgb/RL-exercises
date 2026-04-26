@@ -136,6 +136,10 @@ outputs
 # Tmp
 tmp*
 
+# added later
+results/
+.codex
+.codex/
 # Figures
 rl_exercises/week_2/figures/mars_rover.png
 

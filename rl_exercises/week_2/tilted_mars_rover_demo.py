@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-import pathlib
-
 import matplotlib.pyplot as plt  # type: ignore[import]
 import numpy as np
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage  # type: ignore[import]
 from rich import print as printr
-from rl_exercises.environments import MarsRover
+from rl_exercises.week_2.tilted_mars_rover import TiltedMarsRover
 
-script_dir = pathlib.Path(__file__).parent.resolve()
-
-env = MarsRover()
+env = TiltedMarsRover(
+    transition_probabilities=np.full((5, 2), 0.5),
+    tilt_angle=15.0,
+)
 actions = [0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1]
+
+printr("Base action-follow probabilities without tilt would be 0.5.")
+printr("Tilted follow probabilities:\n", env.P)
+printr("Tilted transition matrix:\n", env.transition_matrix)
 
 states = []
 s, info = env.reset()
@@ -28,7 +31,7 @@ for i in range(env.horizon):
 
 # Plot
 fig, ax = plt.subplots()
-image = plt.imread(script_dir / "figures" / "alien_1f47d.png")
+image = plt.imread("figures/alien_1f47d.png")
 image_box = OffsetImage(image, zoom=0.1)
 x = np.arange(0, len(states))
 y = states
@@ -38,4 +41,4 @@ for x0, y0 in zip(x, y):
 ax.plot(x, y, c="green")
 ax.set_xlabel("Step")
 ax.set_ylabel("State")
-fig.savefig(script_dir / "figures" / "mars_rover.png")
+plt.show()

@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug value_iteration",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/rl_exercises/train_agent.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "agent=value_iteration",
+        "hydra.run.dir=.",
+        "hydra.output_subdir=null"
+      ],
+      "justMyCode": false
+    },
+    {
+      "name": "Debug policy_iteration",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/rl_exercises/train_agent.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "agent=policy_iteration",
+        "hydra.run.dir=.",
+        "hydra.output_subdir=null"
+      ],
+      "justMyCode": false
+    }
+  ]
+}

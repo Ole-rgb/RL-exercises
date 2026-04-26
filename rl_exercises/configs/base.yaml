@@ -8,14 +8,14 @@ hydra:
     dir: "${outpath}/${agent_name}/${env_name}/seed_${seed}"
   
 seed: 0
-training_steps: 1e5
-env_name: Pendulum-v1
+training_steps: 1000
+env_name: MarsRover
 env_kwargs: {}
 agent_kwargs: {}
-eval_every_n_steps: 1000
+eval_every_n_steps: 10
 n_eval_episodes: 1
 outpath: "results"
 buffer_cls: SimpleBuffer
 buffer_kwargs: {}
 batch_size: 64
-update_after_episode_end: false
+update_after_episode_end: true
