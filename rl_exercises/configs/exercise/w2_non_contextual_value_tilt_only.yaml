@@ -1,0 +1,20 @@
+# @package _global_
+defaults:
+  - ../agent: non_contextual_value_iteration
+
+experiment_name: tilt_only_non_contextual_value_iteration
+env_kwargs:
+  tilt_angle: 0.0
+  friction: 0.2
+train_contexts:
+  - {tilt_angle: -20.0, friction: 0.2}
+  - {tilt_angle: -10.0, friction: 0.2}
+  - {tilt_angle: 0.0, friction: 0.2}
+  - {tilt_angle: 10.0, friction: 0.2}
+  - {tilt_angle: 20.0, friction: 0.2}
+validation_contexts:
+  - {tilt_angle: -15.0, friction: 0.2}
+  - {tilt_angle: 15.0, friction: 0.2}
+test_contexts:
+  - {tilt_angle: -25.0, friction: 0.2}
+  - {tilt_angle: 25.0, friction: 0.2}

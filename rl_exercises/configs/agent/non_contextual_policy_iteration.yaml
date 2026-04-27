@@ -1,0 +1,24 @@
+# @package _global_
+agent: non_contextual_policy_iteration
+agent_name: non_contextual_policy_iteration
+agent_class: PolicyIteration
+training_steps: 100
+env_name: TiltedMarsRover
+env_kwargs:
+  transition_probabilities:
+    - [0.5, 0.5]
+    - [0.5, 0.5]
+    - [0.5, 0.5]
+    - [0.5, 0.5]
+    - [0.5, 0.5]
+context_schedule: round_robin
+batch_size: 0
+buffer_cls: SimpleBuffer
+buffer_kwargs: {}
+n_eval_episodes: 3
+
+hydra:
+  run:
+    dir: "${outpath}/${agent_name}/${env_name}/${experiment_name}/seed_${seed}"
+  sweep:
+    dir: "${outpath}/${agent_name}/${env_name}/${experiment_name}/seed_${seed}"

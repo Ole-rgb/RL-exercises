@@ -181,6 +181,7 @@ def policy_improvement(
     T: np.ndarray,
     R_sa: np.ndarray,
     gamma: float,
+    pi: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Improve the current policy based on the value function.
@@ -195,6 +196,9 @@ def policy_improvement(
         Reward matrix R[s, a].
     gamma : float
         Discount factor.
+    pi : np.ndarray | None
+        Previous policy. When provided, ties are broken by keeping the
+        current action if it remains optimal.
 
     Returns
     -------
@@ -203,14 +207,19 @@ def policy_improvement(
     """
     nS, nA = R_sa.shape
     Q = np.zeros((nS, nA))
-    pi_new = None
+    pi_new = np.zeros(nS, dtype=int)
 
     # implement Policy Improvement for all states
     for s in range(nS):
         for a in range(nA):
             sprime_probs = T[s, a, :]
             Q[s, a] = R_sa[s, a] + gamma * np.sum(sprime_probs * V)
-    pi_new = np.argmax(Q, axis=1)  # axis=1 is horizontal (e.g. choose one action (L,R))
+
+        optimal_actions = np.flatnonzero(np.isclose(Q[s], np.max(Q[s])))
+        if pi is not None and int(pi[s]) in optimal_actions:
+            pi_new[s] = int(pi[s])
+        else:
+            pi_new[s] = int(optimal_actions[0])
 
     return Q, pi_new
 
@@ -248,7 +257,7 @@ def policy_iteration(
     while True:
         pi_old = pi.copy()
         V = policy_evaluation(pi, T, R_sa, gamma, epsilon)
-        Q, pi = policy_improvement(V, T, R_sa, gamma)
+        Q, pi = policy_improvement(V, T, R_sa, gamma, pi_old)
         steps += 1
         if np.array_equal(pi_old, pi):
             return (Q, pi, steps)
