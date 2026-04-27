@@ -9,10 +9,12 @@ from rl_exercises.week_2.tilted_mars_rover import TiltedMarsRover
 env = TiltedMarsRover(
     transition_probabilities=np.full((5, 2), 0.5),
     tilt_angle=15.0,
+    friction=0.2,
 )
 actions = [0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1]
 
 printr("Base action-follow probabilities without tilt would be 0.5.")
+printr(f"Context: tilt_angle={env.tilt_angle}, friction={env.friction}")
 printr("Tilted follow probabilities:\n", env.P)
 printr("Tilted transition matrix:\n", env.transition_matrix)
 

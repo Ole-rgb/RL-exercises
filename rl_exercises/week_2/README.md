@@ -63,3 +63,5 @@ As for the Level 3 exercise: obviously you won't use state-of-the-art RL algorit
 - define how contexts change in training (recommended as a default: round robin rotation)
 - set training, testing and validation sets like in Section 6.4
 - run value and/or policy iteration with or without context provided. Also try to evaluate the saved policy on the validation and test sets. What do you observe? Where do the results differ the paper and where do you see the same? Can you explain what might be going on here? Write it down in an `observations_l3.txt` file.
+
+Contextual planner setup and run commands are documented in `CONTEXTUAL_README.md`.

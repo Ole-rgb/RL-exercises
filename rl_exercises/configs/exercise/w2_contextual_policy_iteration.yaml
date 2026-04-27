@@ -1,0 +1,22 @@
+# @package _global_
+defaults:
+  - ../agent: contextual_policy_iteration
+
+experiment_name: joint_variation_policy_iteration
+env_kwargs:
+  tilt_angle: 0.0
+  friction: 0.0
+train_contexts:
+  - {tilt_angle: -20.0, friction: 0.0}
+  - {tilt_angle: -20.0, friction: 0.3}
+  - {tilt_angle: 0.0, friction: 0.3}
+  - {tilt_angle: 20.0, friction: 0.0}
+  - {tilt_angle: 20.0, friction: 0.6}
+validation_contexts:
+  - {tilt_angle: -20.0, friction: 0.6}
+  - {tilt_angle: 0.0, friction: 0.0}
+  - {tilt_angle: 20.0, friction: 0.3}
+test_contexts:
+  - {tilt_angle: -10.0, friction: 0.15}
+  - {tilt_angle: 10.0, friction: 0.45}
+  - {tilt_angle: 15.0, friction: 0.75}

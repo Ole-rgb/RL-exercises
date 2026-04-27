@@ -1,0 +1,22 @@
+Level 3 observations
+
+The contextual Mars Rover experiments compared contextual and non-contextual planning agents across three scenario families:
+tilt-only variation, friction-only variation, and joint tilt-and-friction variation.
+
+In the single-factor settings, context was useful.
+Contextual value iteration performed best in both tilt-only and friction-only experiments,
+and contextual policy iteration also improved over the corresponding non-contextual policy baseline. 
+This suggests that when the source of variation is simple and structured, explicit context can help the planner choose better actions.
+
+The joint variation setting was harder. In that case, both non-contextual baselines outperformed the contextual
+agents on the final test split. The per-context results show that the contextual agents did not fail uniformly;
+instead, they handled some held-out contexts well and others very poorly,
+especially harder combinations with stronger friction. This means the joint contextual setting is
+sensitive to the exact train/test context split and to evaluation variance.
+
+Overall, the experiments show that context can help, but not automatically.
+In this small tabular setup, contextual value iteration was the strongest contextual method,
+while the non-contextual baselines remained surprisingly competitive, and even better, in the joint setting.
+
+# Disclaimer
+The summary and major part of Level 3 codes were produced with the help of codex.

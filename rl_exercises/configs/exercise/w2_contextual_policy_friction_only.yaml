@@ -1,0 +1,20 @@
+# @package _global_
+defaults:
+  - ../agent: contextual_policy_iteration
+
+experiment_name: friction_only_policy_iteration
+env_kwargs:
+  tilt_angle: 0.0
+  friction: 0.0
+train_contexts:
+  - {tilt_angle: 0.0, friction: 0.0}
+  - {tilt_angle: 0.0, friction: 0.1}
+  - {tilt_angle: 0.0, friction: 0.3}
+  - {tilt_angle: 0.0, friction: 0.5}
+  - {tilt_angle: 0.0, friction: 0.7}
+validation_contexts:
+  - {tilt_angle: 0.0, friction: 0.2}
+  - {tilt_angle: 0.0, friction: 0.4}
+test_contexts:
+  - {tilt_angle: 0.0, friction: 0.6}
+  - {tilt_angle: 0.0, friction: 0.8}
