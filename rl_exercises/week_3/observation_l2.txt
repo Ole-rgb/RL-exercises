@@ -1,0 +1,16 @@
+Initial Observation:
+
+since by default, the Q value for state-action pairs are initialized to zero,
+and the epsilon is kept at 0.1, it was not exploring much, due to which the agent required
+very large training steps to even discover the final reward.
+
+the gamma was set to 1, which meant that the agent was focusing on future rewards/Q vals, which were not there initially.
+even with gamma 1, since the agent was just going left because of 0 initialization of the Q, and np.argmax picking the first 0
+the agent only went left and not right, where the actual high reward was.
+
+Even increasing the exploration factor to a higher 0.5 didn't help as much.
+The failure here was probably due to a lack of epsilon scheduling, as the policy was always epsilon-greedy exploring,
+but greedy exploiting might have been a better way after the agent has already found some good reward signal.
+
+Since sarsa was not doing the max on the next state, it was almost hopeless for it to achieve anything good
+with current configuration.
