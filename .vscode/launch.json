@@ -2,28 +2,30 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug value_iteration",
+      "name": "Debug sarsa",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/rl_exercises/train_agent.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "args": [
-        "agent=value_iteration",
+        "agent=sarsa",
+        "env_name=MarsRover",
         "hydra.run.dir=.",
         "hydra.output_subdir=null"
       ],
       "justMyCode": false
     },
     {
-      "name": "Debug policy_iteration",
+      "name": "Debug q_learning",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/rl_exercises/train_agent.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "args": [
-        "agent=policy_iteration",
+        "agent=qlearning",
+        "env_name=MarsRover",
         "hydra.run.dir=.",
         "hydra.output_subdir=null"
       ],

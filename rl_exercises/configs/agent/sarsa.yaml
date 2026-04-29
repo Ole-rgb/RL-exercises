@@ -1,5 +1,12 @@
 # @package _global_
+hydra:
+  run:
+    dir: "${outpath}/${agent_name}/${env_name}/seed_${seed}.gamma_${gamma}.alpha_${alpha}.epsilon_${epsilon}.trainsteps_${training_steps}"
+
 agent: sarsa
 agent_name: sarsa
 batch_size: 0
-training_steps: 15000
+training_steps: 1500
+alpha: 0.9
+gamma: 1.0
+epsilon: 0.5

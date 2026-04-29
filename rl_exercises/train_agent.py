@@ -22,6 +22,8 @@ from rl_exercises.agent.buffer import SimpleBuffer
 from rl_exercises.environments import MarsRover
 from rl_exercises.week_2.policy_iteration import PolicyIteration
 from rl_exercises.week_2.value_iteration import ValueIteration
+from rl_exercises.week_3.epsilon_greedy_policy import EpsilonGreedyPolicy
+from rl_exercises.week_3.sarsa_qlearning import TDAgent
 
 # from rl_exercises.week_4 import EpsilonGreedyPolicy as TabularEpsilonGreedyPolicy
 # from rl_exercises.week_4 import SARSAAgent
@@ -66,6 +68,16 @@ def train(cfg: DictConfig) -> float:
             cfg.env_name, {"transition_probabilities": np.ones((5, 2)) * 0.5}
         )
         agent = ValueIteration(env)
+    elif cfg.agent == "sarsa":
+        policy = EpsilonGreedyPolicy(env, epsilon=cfg.epsilon, seed=cfg.seed)
+        agent = TDAgent(
+            env, policy, alpha=cfg.alpha, gamma=cfg.gamma, algorithm="sarsa"
+        )
+    elif cfg.agent == "qlearning":
+        policy = EpsilonGreedyPolicy(env, epsilon=cfg.epsilon, seed=cfg.seed)
+        agent = TDAgent(
+            env, policy, alpha=cfg.alpha, gamma=cfg.gamma, algorithm="qlearning"
+        )
     else:
         # TODO: add your agent options here
         raise NotImplementedError
@@ -79,6 +91,9 @@ def train(cfg: DictConfig) -> float:
     for step in range(int(cfg.training_steps)):
         action, info = agent.predict_action(state, info)
         next_state, reward, terminated, truncated, info = env.step(action)
+        print(
+            f"{cfg.agent}: Step: {step}, state: {state}, action: {action}, next state: {next_state}, reward: {reward}"
+        )
 
         buffer.add(state, action, reward, next_state, (truncated or terminated), info)
         train_reward_buffer["steps"].append(step)
