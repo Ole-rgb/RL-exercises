@@ -102,7 +102,7 @@ class MarsRover(gym.Env):
             An empty info dictionary.
         """
         self.current_steps = 0
-        self.position = 2
+        self.position = options.get("start_state", 2) if options is not None else 2
         return self.position, {}
 
     def step(
@@ -226,14 +226,17 @@ class MarsRover(gym.Env):
         if S is None or A is None or P is None:
             S, A, P = self.states, self.actions, self.P
 
-        # Determine the transition matrix using the get_next_state function
-        # and the transition probabilities P.
         nS, nA = len(S), len(A)
         T = np.zeros((nS, nA, nS), dtype=float)
+
         for s in S:
             for a in A:
-                s_next = self.get_next_state(s, a)
-                T[s, a, s_next] = float(P[s, a])
+                p_follow = float(P[s, a])
+                s_follow = self.get_next_state(s, a)
+                s_flip = self.get_next_state(s, 1 - a)
+
+                T[s, a, s_follow] += p_follow
+                T[s, a, s_flip] += 1.0 - p_follow
 
         return T
 
