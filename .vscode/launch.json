@@ -30,6 +30,24 @@
         "hydra.output_subdir=null"
       ],
       "justMyCode": false
+    },
+    {
+      "name": "Debug tdlambda",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/rl_exercises/train_agent.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "agent=tdlambda",
+        "env_name=MarsRover",
+        "hydra.run.dir=.",
+        "hydra.output_subdir=null"
+      ],
+      "justMyCode": false
     }
+  ]
+}
+
   ]
 }

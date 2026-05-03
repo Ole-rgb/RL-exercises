@@ -102,7 +102,7 @@ class MarsRover(gym.Env):
             An empty info dictionary.
         """
         self.current_steps = 0
-        self.position = 2
+        self.position = options.get("start_state", 2) if options is not None else 2
         return self.position, {}
 
     def step(

@@ -138,6 +138,7 @@ tmp*
 
 # added later
 results/
+rl_exercises/plotting/
 .codex
 .codex/
 # Figures

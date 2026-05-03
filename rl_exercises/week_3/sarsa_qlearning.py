@@ -200,3 +200,83 @@ class TDAgent(AbstractAgent):
         )
         self.Q[state][action] += self.alpha * update
         return self.Q[state][action]
+
+
+class TDLambdaAgent(TDAgent):
+    """Tabular SARSA(lambda) agent with accumulating eligibility traces."""
+
+    def __init__(
+        self,
+        env: gym.Env,
+        policy: EpsilonGreedyPolicy,
+        alpha: float = 0.5,
+        gamma: float = 1.0,
+        lambd: float = 1.0,
+    ) -> None:
+        """Initialize the TD(lambda) agent.
+
+        Parameters
+        ----------
+        env : gym.Env
+            Environment for the agent.
+        policy : EpsilonGreedyPolicy
+            Policy used for action selection.
+        alpha : float, optional
+            Learning rate, by default 0.5.
+        gamma : float, optional
+            Discount factor, by default 1.0.
+        lambd : float, optional
+            Trace decay parameter, by default 1.0.
+        """
+        assert 0 <= lambd <= 1, "Lambda should be in [0, 1]"
+        super().__init__(
+            env=env,
+            policy=policy,
+            alpha=alpha,
+            gamma=gamma,
+            algorithm="sarsa",
+        )
+        self.lambd = lambd
+        self.eligibility: DefaultDict[Any, np.ndarray] = defaultdict(
+            lambda: np.zeros(self.n_actions, dtype=float)
+        )
+
+    def update_agent(self, batch) -> float:  # type: ignore
+        """Apply one SARSA(lambda) update from the latest transition."""
+        state, action, reward, next_state, done, _ = batch[0]
+        next_action = self.predict_action(next_state, info={}, evaluate=False)[0]
+        return self.SARSA_lambda(
+            state=state,
+            action=int(action),
+            reward=float(reward),
+            next_state=next_state,
+            next_action=int(next_action),
+            done=bool(done),
+        )
+
+    def SARSA_lambda(
+        self,
+        state: State,
+        action: int,
+        reward: float,
+        next_state: State,
+        next_action: int,
+        done: bool,
+    ) -> float:
+        """Perform one accumulating-trace SARSA(lambda) update."""
+        td_error = (
+            reward
+            + self.gamma * self.Q[next_state][next_action] * (1 - done)
+            - self.Q[state][action]
+        )
+
+        self.eligibility[state][action] += 1.0
+
+        for trace_state in list(self.eligibility.keys()):
+            self.Q[trace_state] += self.alpha * td_error * self.eligibility[trace_state]
+            self.eligibility[trace_state] *= self.gamma * self.lambd
+
+        if done:
+            self.eligibility.clear()
+
+        return self.Q[state][action]

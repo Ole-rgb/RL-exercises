@@ -23,7 +23,7 @@ from rl_exercises.environments import MarsRover
 from rl_exercises.week_2.policy_iteration import PolicyIteration
 from rl_exercises.week_2.value_iteration import ValueIteration
 from rl_exercises.week_3.epsilon_greedy_policy import EpsilonGreedyPolicy
-from rl_exercises.week_3.sarsa_qlearning import TDAgent
+from rl_exercises.week_3.sarsa_qlearning import TDAgent, TDLambdaAgent
 
 # from rl_exercises.week_4 import EpsilonGreedyPolicy as TabularEpsilonGreedyPolicy
 # from rl_exercises.week_4 import SARSAAgent
@@ -78,13 +78,22 @@ def train(cfg: DictConfig) -> float:
         agent = TDAgent(
             env, policy, alpha=cfg.alpha, gamma=cfg.gamma, algorithm="qlearning"
         )
+    elif cfg.agent == "tdlambda":
+        policy = EpsilonGreedyPolicy(env, epsilon=cfg.epsilon, seed=cfg.seed)
+        agent = TDLambdaAgent(
+            env, policy, alpha=cfg.alpha, gamma=cfg.gamma, lambd=cfg.lambd
+        )
     else:
         # TODO: add your agent options here
         raise NotImplementedError
 
     buffer_cls = eval(cfg.buffer_cls)
     buffer = buffer_cls(**cfg.buffer_kwargs)
-    state, info = env.reset(seed=cfg.seed)
+    state, info = (
+        env.reset(seed=cfg.seed, options={"start_state": cfg.start_state})
+        if cfg.agent == "tdlambda"
+        else env.reset(seed=cfg.seed)
+    )
     train_reward_buffer = {"steps": [], "train_rewards": []}
     eval_reward_buffer = {"eval_steps": [], "eval_rewards": []}
 
@@ -108,7 +117,11 @@ def train(cfg: DictConfig) -> float:
         state = next_state
 
         if terminated or truncated:
-            state, info = env.reset(seed=cfg.seed)
+            state, info = (
+                env.reset(seed=cfg.seed, options={"start_state": cfg.start_state})
+                if cfg.agent == "tdlambda"
+                else env.reset(seed=cfg.seed)
+            )
 
         if step % cfg.eval_every_n_steps == 0:
             eval_performance = evaluate(
@@ -130,6 +143,9 @@ def train(cfg: DictConfig) -> float:
     )
     final_eval = evaluate(env, agent, cfg.n_eval_episodes)
     print(f"Final eval reward was: {final_eval}")
+    print("Final policy:")
+    for key, value in sorted(agent.Q.items()):
+        print(key, value)
     return final_eval
 
 
