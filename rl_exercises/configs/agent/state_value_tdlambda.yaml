@@ -1,0 +1,15 @@
+# @package _global_
+hydra:
+  run:
+    dir: "${outpath}/${agent_name}/${env_name}/seed_${seed}.gamma_${gamma}.alpha_${alpha}.lambda_${lambd}.epochs_${epochs}"
+
+agent: state_value_tdlambda
+agent_name: state_value_tdlambda
+env_name: MarsRover
+dataset_path: ${hydra:runtime.cwd}/rl_exercises/week_3/data/random_walk_training_sets.npy
+seed: 0
+eval_every_n_steps: 10
+alpha: 0.1
+gamma: 1.0
+lambd: 0.9
+epochs: 1

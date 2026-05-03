@@ -21,7 +21,7 @@ env_kwargs:
 batch_size: 0
 training_steps: 1500
 eval_every_n_steps: 50
-alpha: 0.05
+alpha: 0.01
 gamma: 0.95
 lambd: 0.8
 epsilon: 0.5

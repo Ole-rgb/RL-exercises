@@ -6,7 +6,8 @@ hydra:
 agent: sarsa
 agent_name: sarsa
 batch_size: 0
+seed: 0
 training_steps: 1500
 alpha: 0.9
-gamma: 1.0
-epsilon: 0.5
+gamma: 0.95
+epsilon: 0.2

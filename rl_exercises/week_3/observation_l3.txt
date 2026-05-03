@@ -1,0 +1,17 @@
+- observation level 3
+
+- a TD(lambda) agent was implement based on the paper
+- the paper collects 100 training sets, each with 10 trajectory and trains agent with various configs
+- the training sets are collected through a random walk on a 7 state MarsRover env, with each trajectory starting at D
+or in MarsRover equivalent state 3,
+- this setup was reimplemented here and used to train the agent.
+
+observation
+- as in paper, the implemented agent was able to achieve similar minimum alpha values for give lambda as
+reported in the report/report.md under week_3
+- but the errors were scaled up somewhat.
+- this might have something to do with how the training sets was generated, or so errors might be present in the
+implementation of the td-lambda, which were not looked further due to time constraints.
+
+DISCLAIMER
+- the level 3 of the assignment implementation and the plot generation for experiments were aided by AI.
