@@ -90,7 +90,7 @@ class TestDQNAgent(unittest.TestCase):
     def test_predict_action(self):
         """predict_action returns a valid action and an info dict."""
         obs, _ = self.env.reset(seed=0)
-        action = self.agent.predict_action(obs)
+        action, info = self.agent.predict_action(obs)
         self.assertIsInstance(action, int)
         self.assertTrue(self.env.action_space.contains(action))
 
