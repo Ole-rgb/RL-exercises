@@ -4,9 +4,13 @@ Deep Q-Learning implementation.
 
 from typing import Any, Dict, List, Tuple
 
+import os
+from pathlib import Path
+
 import gymnasium as gym
 import hydra
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -14,6 +18,7 @@ from omegaconf import DictConfig
 from rl_exercises.agent import AbstractAgent
 from rl_exercises.week_4.buffers import ReplayBuffer
 from rl_exercises.week_4.networks import QNetwork
+from tqdm import tqdm
 
 
 def set_seed(env: gym.Env, seed: int = 0) -> None:
@@ -58,6 +63,9 @@ class DQNAgent(AbstractAgent):
         epsilon_final: float = 0.01,
         epsilon_decay: int = 500,
         target_update_freq: int = 1000,
+        network_cfg: DictConfig = DictConfig(
+            {"hidden_dim": 64, "num_linear_layers": 2}
+        ),
         seed: int = 0,
     ) -> None:
         """
@@ -83,6 +91,8 @@ class DQNAgent(AbstractAgent):
             Exponential decay parameter.
         target_update_freq : int
             How many updates between target‐network syncs.
+        network_cfg : DictConfig
+            Configuration for the Q-network.
         seed : int
             RNG seed.
         """
@@ -105,8 +115,18 @@ class DQNAgent(AbstractAgent):
         n_actions = env.action_space.n
 
         # main Q‐network and frozen target
-        self.q = QNetwork(obs_dim, n_actions)
-        self.target_q = QNetwork(obs_dim, n_actions)
+        self.q = QNetwork(
+            obs_dim,
+            n_actions,
+            hidden_dim=network_cfg.hidden_dim,
+            num_linear_layers=network_cfg.num_linear_layers,
+        )
+        self.target_q = QNetwork(
+            obs_dim,
+            n_actions,
+            hidden_dim=network_cfg.hidden_dim,
+            num_linear_layers=network_cfg.num_linear_layers,
+        )
         self.target_q.load_state_dict(self.q.state_dict())
 
         self.optimizer = optim.Adam(self.q.parameters(), lr=lr)
@@ -253,7 +273,13 @@ class DQNAgent(AbstractAgent):
         self.total_steps += 1
         return float(loss.item())
 
-    def train(self, num_frames: int, eval_interval: int = 1000) -> None:
+    def train(
+        self,
+        num_frames: int,
+        eval_interval: int = 1000,
+        n_eval_episodes: int = 1,
+        seed: int = 0,
+    ) -> float:
         """
         Run a training loop for a fixed number of frames.
 
@@ -262,11 +288,25 @@ class DQNAgent(AbstractAgent):
         num_frames : int
             Total environment steps.
         eval_interval : int
-            Every this many episodes, print average reward.
+            Every this many frames, evaluate the agent.
+        n_eval_episodes : int
+            Number of evaluation episodes.
+        seed : int
+            Random seed for evaluation environments.
+
+        Returns
+        -------
+        float
+            Final evaluation reward.
         """
         state, _ = self.env.reset()
         ep_reward = 0.0
         recent_rewards: List[float] = []
+        train_reward_buffer = {"steps": [], "train_rewards": []}
+        eval_reward_buffer = {"eval_steps": [], "eval_rewards": []}
+        final_model_path = Path("model.pt").resolve()
+        best_model_path = Path("best_model.pt").resolve()
+        best_eval_reward = float("-inf")
 
         for frame in range(1, num_frames + 1):
             action, _ = self.predict_action(state)
@@ -274,6 +314,8 @@ class DQNAgent(AbstractAgent):
 
             # store and step
             self.buffer.add(state, action, reward, next_state, done or truncated, {})
+            train_reward_buffer["steps"].append(frame)
+            train_reward_buffer["train_rewards"].append(reward)
             state = next_state
             ep_reward += reward
 
@@ -297,7 +339,91 @@ class DQNAgent(AbstractAgent):
                         f"Frame {frame}, AvgReward(10): {avg:.2f}, ε={self.epsilon():.3f}"
                     )
 
+            if frame % eval_interval == 0:
+                eval_env = gym.make(self.env.spec.id)
+                eval_performance = evaluate(
+                    eval_env,
+                    self,
+                    episodes=n_eval_episodes,
+                    seed=seed,
+                )
+                print(f"Eval reward after {frame} steps was {eval_performance}.")
+                eval_reward_buffer["eval_steps"].append(frame)
+                eval_reward_buffer["eval_rewards"].append(eval_performance)
+                if eval_performance > best_eval_reward:
+                    best_eval_reward = eval_performance
+                    self.save(str(best_model_path))
+
         print("Training complete.")
+        self.save(str(final_model_path))
+        pd.DataFrame(train_reward_buffer).to_csv(
+            os.path.abspath("train_rewards.csv"), index=False
+        )
+        pd.DataFrame(eval_reward_buffer).to_csv(
+            os.path.abspath("eval_rewards.csv"), index=False
+        )
+
+        final_eval_env = gym.make(self.env.spec.id)
+        final_eval = evaluate(
+            final_eval_env,
+            self,
+            episodes=n_eval_episodes,
+            seed=seed,
+        )
+        if final_eval > best_eval_reward:
+            best_eval_reward = final_eval
+            self.save(str(best_model_path))
+        print(f"Final eval reward was: {final_eval}")
+        print(f"Best eval reward was: {best_eval_reward}")
+        return final_eval
+
+
+def evaluate(
+    env: gym.Env, agent: AbstractAgent, episodes: int = 100, seed: int = 0
+) -> float:
+    """
+    Evaluate a given agent on an environment.
+
+    Parameters
+    ----------
+    env : gym.Env
+        Environment to evaluate on.
+    agent : AbstractAgent
+        Agent to evaluate.
+    episodes : int
+        Evaluation episodes.
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    float
+        Mean evaluation reward.
+    """
+    episode_rewards: List[float] = []
+    pbar = tqdm(total=episodes)
+    for _ in range(episodes):
+        obs, info = env.reset(seed=seed)
+        episode_rewards.append(0)
+        done = False
+        episode_steps = 0
+        while not done:
+            action, _ = agent.predict_action(obs, info, evaluate=True)
+            obs, reward, terminated, truncated, _ = env.step(action)
+            episode_rewards[-1] += reward
+            episode_steps += 1
+            if terminated or truncated:
+                done = True
+                pbar.set_postfix(
+                    {
+                        "episode reward": episode_rewards[-1],
+                        "episode step": episode_steps,
+                    }
+                )
+        pbar.update(1)
+    pbar.close()
+    env.close()
+    return float(np.mean(episode_rewards))
 
 
 @hydra.main(config_path="../configs/agent/", config_name="dqn", version_base="1.1")
@@ -318,9 +444,16 @@ def main(cfg: DictConfig):
     agent_kwargs["target_update_freq"] = cfg.agent.target_update_freq
     agent_kwargs["seed"] = cfg.agent.seed
 
+    agent_kwargs["network_cfg"] = cfg.network
+
     # 3) DONE: instantiate & train
     agent = DQNAgent(env, **agent_kwargs)
-    agent.train(cfg.train.num_frames, cfg.train.eval_interval)
+    agent.train(
+        cfg.train.num_frames,
+        cfg.train.eval_interval,
+        cfg.train.n_eval_episodes,
+        cfg.seed,
+    )
 
 
 if __name__ == "__main__":
