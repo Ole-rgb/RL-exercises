@@ -1,7 +1,7 @@
 # @package _global_
 hydra:
   run:
-    dir: "${outpath}/${agent.name}/timestamp_${now:$Y-%m-%d_%H-%M-%S}"
+    dir: "${outpath}/${agent.name}/seed_${seed}/timestamp_${now:$Y-%m-%d_%H-%M-%S}"
 
 env:
   name: CartPole-v1
