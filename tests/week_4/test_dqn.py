@@ -9,11 +9,12 @@ Verifies:
 """
 
 import unittest
+from pathlib import Path
 
 import gymnasium as gym
 import numpy as np
 import torch
-from rl_exercises.week_4 import DQNAgent, ReplayBuffer
+from rl_exercises.week_4 import DQNAgent, QNetwork, ReplayBuffer
 
 
 class TestReplayBuffer(unittest.TestCase):
@@ -90,9 +91,27 @@ class TestDQNAgent(unittest.TestCase):
     def test_predict_action(self):
         """predict_action returns a valid action and an info dict."""
         obs, _ = self.env.reset(seed=0)
-        action = self.agent.predict_action(obs)
+        action, info = self.agent.predict_action(obs)
         self.assertIsInstance(action, int)
         self.assertTrue(self.env.action_space.contains(action))
+
+    def test_qnetwork_configurable(self):
+        """QNetwork supports configurable hidden size and layer count."""
+        net = QNetwork(obs_dim=4, n_actions=2, hidden_dim=32, num_linear_layers=3)
+        batch = torch.zeros((5, 4), dtype=torch.float32)
+        q_values = net(batch)
+        linear_layers = [
+            module for module in net.net if isinstance(module, torch.nn.Linear)
+        ]
+        self.assertEqual(q_values.shape, (5, 2))
+        self.assertEqual(len(linear_layers), 4)
+        self.assertEqual(linear_layers[0].out_features, 32)
+        self.assertEqual(linear_layers[-1].out_features, 2)
+
+    def test_qnetwork_rejects_invalid_layer_count(self):
+        """QNetwork rejects zero hidden layers with a clear error."""
+        with self.assertRaises(ValueError):
+            QNetwork(obs_dim=4, n_actions=2, num_linear_layers=0)
 
     def test_update_agent(self):
         """One call to update_agent actually changes at least one weight."""
@@ -113,11 +132,32 @@ class TestDQNAgent(unittest.TestCase):
             )
         )
 
+    def test_custom_architecture_train_smoke(self):
+        """A non-default network architecture should still train."""
+        custom_agent = DQNAgent(
+            self.env,
+            buffer_capacity=20,
+            batch_size=4,
+            lr=1e-2,
+            gamma=0.9,
+            epsilon_start=0.5,
+            epsilon_final=0.1,
+            epsilon_decay=10,
+            target_update_freq=5,
+            hidden_dim=32,
+            num_linear_layers=3,
+            seed=0,
+        )
+        final_eval = custom_agent.train(num_frames=30, eval_interval=15)
+        self.assertIsInstance(final_eval, float)
+
     def test_train_smoke(self):
         """A short training run should complete without errors."""
         self.agent.train(num_frames=50, eval_interval=25)
         # buffer should have grown
         self.assertGreater(len(self.agent.buffer), 0)
+        self.assertTrue(Path("model.pt").exists())
+        self.assertTrue(Path("best_model.pt").exists())
 
 
 if __name__ == "__main__":

@@ -1,0 +1,39 @@
+# @package _global_
+hydra:
+  run:
+    dir: "${outpath}/${agent.name}/seed_${seed}/timestamp_${now:$Y-%m-%d_%H-%M-%S}"
+
+env:
+  name: CartPole-v1
+
+seed: 0
+
+agent:
+  name: extended_dqn
+  mode: normal
+  batch_size: 32
+  learning_rate: 0.001
+  gamma: 0.99
+  epsilon_start: 1.0
+  epsilon_final: 0.01
+  epsilon_decay: 500
+  target_update_freq: 1000
+  seed: 0
+
+buffer:
+  type: prioritized
+  capacity: 10000
+  alpha: 0.6
+  beta: 0.4
+  eps: 0.000001
+
+network:
+  hidden_dim: 64
+  num_linear_layers: 2
+
+train:
+  num_frames: 20000
+  eval_interval: 1000
+  n_eval_episodes: 1000
+
+outpath: "results"
