@@ -25,7 +25,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--seeds",
         type=parse_int_list,
-        default=parse_int_list("0, 10, 100, 1000, 10000"),
+        default=parse_int_list(
+            "0,1,10,100,1000,10000,100000,1000000,10000000,100000000"
+        ),
     )
     parser.add_argument(
         "--modes",
@@ -86,6 +88,26 @@ def main() -> None:
     )
 
     total_runs = len(combinations)
+    print(
+        f"Starting extended DQN sweep with {len(args.seeds)} seed(s): {args.seeds}",
+        flush=True,
+    )
+    print(
+        f"Total parameter combinations: {total_runs}",
+        flush=True,
+    )
+    print(
+        "Configuration space: "
+        f"env_name={args.env_name}, "
+        f"modes={args.modes}, "
+        f"buffer_types={args.buffer_types}, "
+        f"batch_sizes={args.batch_sizes}, "
+        f"buffer_capacities={args.buffer_capacities}, "
+        f"hidden_dims={args.hidden_dims}, "
+        f"num_linear_layers={args.num_linear_layers}, "
+        f"extra_overrides={args.extra_overrides}",
+        flush=True,
+    )
     for run_index, combination in enumerate(combinations, start=1):
         seed, mode, buffer_type, batch_size, buffer_capacity, hidden_dim, num_layers = (
             combination

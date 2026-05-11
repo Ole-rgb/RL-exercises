@@ -1,0 +1,69 @@
+L2 Observations — RLiable for Seeded Extended DQN
+=================================================
+
+NOTE:
+- for l2 extended_dqn is just regular dqn without the bells and whistles.
+- figures:
+  - ./plots/l2/*.png
+
+Setup
+-----
+Environment  : CartPole-v1
+Agent        : extended_dqn
+Seeds        : 10
+Evaluation   : final metric taken from the last recorded eval reward per seed
+Reporting    : RLiable sample-efficiency curve and final metrics (IQM, median, mean, optimality gap)
+
+Observed final scores across seeds were:
+110, 120, 137, 145, 154, 159, 177, 177, 233, 500
+
+This is already enough to show that the seed distribution is skewed: one seed solved
+the environment with a final score of 500, while most seeds finished much lower, in
+roughly the 110-233 range.
+
+What changes when using RLiable vs. plain averages?
+---------------------------------------------------
+Using plain averages would summarize the seeded runs with one number and one average
+curve. That hides how uneven the seed distribution actually is. In these results, the
+plain final mean is 191.2, which is noticeably higher than what most individual seeds
+achieved. The reason is that the single 500-score run pulls the average upward.
+
+RLiable changes the interpretation in two ways:
+
+1. It uses robust aggregate statistics such as IQM and median, not only the mean.
+   These are less sensitive to one unusually strong seed.
+
+2. It shows bootstrap confidence intervals, so the plots communicate uncertainty across
+   seeds instead of presenting the aggregate as if it were exact.
+
+For these runs, the important qualitative result is that the mean looks more optimistic
+than the robust summaries. That suggests the "typical" seed performance is weaker than
+the plain average implies. In other words, the average overstates how reliable the agent
+is, while the RLiable plots expose that the good result is not representative of most
+seeds.
+
+Do I feel more confident in the results? Why or why not?
+--------------------------------------------------------
+I feel more confident in the interpretation, but not necessarily more confident that the
+agent is strong. The RLiable figures make it clearer what is actually happening:
+
+- the sample-efficiency curve summarizes learning across seeds rather than showing only
+  one lucky trajectory;
+- the final-metric plot shows that there is a large gap between the optimistic mean and
+  the more robust summaries;
+- the bootstrap intervals make the uncertainty visible instead of hiding it.
+
+So RLiable increases confidence in the *reporting*, because it reveals that performance
+is seed-sensitive and that one outlier seed is inflating the mean. At the same time, it
+reduces confidence in a simple claim like "extended_dqn reliably solves CartPole",
+because the seeded results do not support that conclusion. Most seeds do not end near
+the solved score, and the optimality-gap plot confirms that the method remains far from
+consistently optimal across seeds.
+
+Conclusion
+----------
+Compared with plain averages, the RLiable figures give a more honest summary of seeded
+performance. They show that extended_dqn can occasionally perform extremely well, but
+its typical performance is lower and less consistent than the mean alone suggests. That
+makes the results more trustworthy as an analysis, even though it also shows that the
+agent is less reliable than a plain average would imply.
