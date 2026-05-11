@@ -26,8 +26,6 @@ in speed and stability across seeds.
   the Q-function precisely enough for longer episodes.
 
 - baseline (64): Slower initial rise but a steady upward trend throughout.
-  The std band widens in later training, indicating increasing seed 
-  sensitivity as the agent transitions from easy to harder performance levels.
 
 - wide (256): Consistently the highest-performing configuration. Its mean
   is clearly above the others from frame 7000 onwards. The std band is the
