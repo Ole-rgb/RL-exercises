@@ -84,6 +84,35 @@ class TestReinforceAgent(unittest.TestCase):
         self.assertAlmostEqual(mean_ret, 1.0, places=8)
         self.assertAlmostEqual(std_ret, 0.0, places=8)
 
+    def test_reward_calculation_gamma_one(self):
+        # [0,0,10], gamma = 1
+        dummy = DummyEnv()
+        agent = REINFORCEAgent(dummy, lr=1e-2, gamma=1, seed=0)
+        returns = agent.compute_returns([0, 0, 10])
+
+        self.assertAlmostEqual(returns[0].item(), 10.0, places=5, msg="Reward ")
+        self.assertAlmostEqual(returns[1].item(), 10.0, places=5)
+
+    def test_reward_calculation_gamma_point_five(self):
+        # [0,0,10], gamma = .5
+        dummy = DummyEnv()
+        agent = REINFORCEAgent(dummy, lr=1e-2, gamma=0.5, seed=0)
+        returns = agent.compute_returns([0, 0, 10])
+
+        self.assertAlmostEqual(returns[2].item(), 10.0, places=5)
+        self.assertAlmostEqual(returns[1].item(), 5, places=5)
+        self.assertAlmostEqual(returns[0].item(), 2.5, places=5)
+
+    def test_reward_calculation_gamma_zero(self):
+        # [0,0,10], gamma = .0
+        dummy = DummyEnv()
+        agent = REINFORCEAgent(dummy, lr=1e-2, gamma=0.0, seed=0)
+        returns = agent.compute_returns([0, 0, 10])
+
+        self.assertAlmostEqual(returns[2].item(), 10.0, places=5)
+        self.assertAlmostEqual(returns[1].item(), 0, places=5)
+        self.assertAlmostEqual(returns[0].item(), 0, places=5)
+
 
 if __name__ == "__main__":
     unittest.main()
