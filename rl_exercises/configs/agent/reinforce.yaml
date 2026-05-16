@@ -1,9 +1,9 @@
 # configs/reinforce.yaml
 hydra:
   run:
-    dir: "${outpath}/${agent_name}/${env_name}/seed_${seed}"
+    dir: "${outpath}/${agent.name}/${env.name}/seed_${seed}"
   sweep:
-    dir: "${outpath}/${agent_name}/${env_name}/seed_${seed}"
+    dir: "${outpath}/${agent.name}/${env.name}/seed_${seed}"
 
 # Gymnasium environment settings
 env:
@@ -20,9 +20,11 @@ seed: 0
 
 # Agent hyperparameters
 agent:
+  name: REINFORCE
   lr: 1e-2
   gamma: 0.99
-  hidden_size: 128
+  hidden_size: 256
+  hidden_layer_count: 2
 
 # Training settings
 train:

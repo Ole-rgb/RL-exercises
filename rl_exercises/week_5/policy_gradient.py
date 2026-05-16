@@ -1,5 +1,7 @@
 from typing import Any, Dict, List, Tuple
 
+from collections import OrderedDict
+
 import gymnasium as gym
 import hydra
 import numpy as np
@@ -51,6 +53,7 @@ class Policy(nn.Module):
         state_space: gym.spaces.Box,
         action_space: gym.spaces.Discrete,
         hidden_size: int = 128,
+        hidden_layer_count: int = 1,
     ):
         """
         Initialize the policy network.
@@ -63,12 +66,27 @@ class Policy(nn.Module):
             Action space of the environment.
         hidden_size : int, optional
             Number of hidden units. Defaults to 128.
+        hidden_layer_count : int, optional
+            Number of hidden layers. Defaults to 1.
         """
         super().__init__()
         self.state_dim = int(np.prod(state_space.shape))
-        self.fc1 = nn.Linear(self.state_dim, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, action_space.n)
-        self.relu = nn.ReLU()
+        self.hidden_layer_count = hidden_layer_count
+
+        if hidden_layer_count < 1:
+            raise ValueError("num_linear_layers must be at least 1")
+
+        layers: list[tuple[str, nn.Module]] = [
+            ("fc1", nn.Linear(self.state_dim, hidden_size)),
+            ("relu1", nn.ReLU()),
+        ]
+
+        for layer_idx in range(2, hidden_layer_count + 1):
+            layers.append((f"fc{layer_idx}", nn.Linear(hidden_size, hidden_size)))
+            layers.append((f"relu{layer_idx}", nn.ReLU()))
+
+        layers.append(("out", nn.Linear(hidden_size, action_space.n)))
+        self.net = nn.Sequential(OrderedDict(layers))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -84,10 +102,13 @@ class Policy(nn.Module):
         torch.Tensor
             Softmax probabilities over actions, shape (batch_size, n_actions).
         """
+        # level 1
         # DONE: Apply fc1 followed by ReLU (Flatten input if needed)
-        fc1_out = self.relu(self.fc1(x))
+        # fc1_out = self.relu(self.fc1(x))
         # DONE: Apply fc2 to get logits
-        logits = self.fc2(fc1_out)
+        # logits = self.fc2(fc1_out)
+        # level 2
+        logits = self.net(x)
         # DONE: Return softmax over logits along the last dimension
         return torch.softmax(logits, dim=-1)
 
@@ -117,6 +138,7 @@ class REINFORCEAgent(AbstractAgent):
         gamma: float = 0.99,
         seed: int = 0,
         hidden_size: int = 128,
+        hidden_layer_count: int = 1,
     ) -> None:
         """
         Initialize the REINFORCE agent.
@@ -126,12 +148,16 @@ class REINFORCEAgent(AbstractAgent):
             lr (float, optional): Learning rate. Defaults to 1e-2.
             gamma (float, optional): Discount factor. Defaults to 0.99.
             seed (int, optional): Random seed. Defaults to 0.
+            hidden_size (int, optional): Number of hidden units. Defaults to 128.
+            hidden_layer_count (int, optional): Number of hidden layers. Defaults to 1.
         """
 
         set_seed(env, seed)
         self.env = env
         self.gamma = gamma
-        self.policy = Policy(env.observation_space, env.action_space, hidden_size)
+        self.policy = Policy(
+            env.observation_space, env.action_space, hidden_size, hidden_layer_count
+        )
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         self.total_episodes = 0
 
@@ -401,6 +427,7 @@ def main(cfg: DictConfig) -> None:
         gamma=cfg.agent.gamma,
         seed=cfg.seed,
         hidden_size=cfg.agent.hidden_size,
+        hidden_layer_count=cfg.agent.hidden_layer_count,
     )
 
     # Train agent
