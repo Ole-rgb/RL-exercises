@@ -1,10 +1,12 @@
 from typing import Any, Dict, List, Tuple
 
+import os
 from collections import OrderedDict
 
 import gymnasium as gym
 import hydra
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -324,11 +326,13 @@ class REINFORCEAgent(AbstractAgent):
             state, _ = eval_env.reset()
             done = False
             episode_return = 0
+            steps = 0
             while not done:
                 action, _ = self.predict_action(state, evaluate=True)
                 state, reward, term, trunc, _ = eval_env.step(action)
                 done = term or trunc
                 episode_return += reward
+                steps += 1
             returns.append(episode_return)
 
         self.policy.train()  # Set back to training mode
@@ -359,6 +363,13 @@ class REINFORCEAgent(AbstractAgent):
         )  # fresh copy for eval
         best = -float("inf")
         current = 0
+        train_reward_buffer = {
+            "steps": [],
+            "train_rewards": [],
+            "episodes": [],
+            "losses": [],
+        }
+        eval_reward_buffer = {"eval_std_ret": [], "eval_mean_ret": [], "episodes": []}
         for ep in range(1, num_episodes + 1):
             state, _ = self.env.reset()
             done = False
@@ -375,18 +386,32 @@ class REINFORCEAgent(AbstractAgent):
             total_return = sum(r for _, _, r, *_ in batch)
             self.total_episodes += 1
 
+            train_reward_buffer["steps"].append(len(batch))
+            train_reward_buffer["train_rewards"].append(sum(t[2] for t in batch))
+            train_reward_buffer["episodes"].append(ep)
+            train_reward_buffer["losses"].append(loss)
+
             if ep % 10 == 0:
                 print(f"[Train] Ep {ep:3d} Return {total_return:5.1f} Loss {loss:.3f}")
 
             if ep % eval_interval == 0:
                 mean_ret, std_ret = self.evaluate(eval_env, num_episodes=eval_episodes)
                 print(f"[Eval ] Ep {ep:3d} AvgReturn {mean_ret:5.1f} ± {std_ret:4.1f}")
+                eval_reward_buffer["eval_mean_ret"].append(mean_ret)
+                eval_reward_buffer["eval_std_ret"].append(std_ret)
+                eval_reward_buffer["episodes"].append(ep)
                 current = mean_ret
                 if mean_ret > best:
                     best = mean_ret
-                    self.save(f"best_reinforce_{ep}.pth")
+                    self.save("best_reinforce.pth")
                     print(f"New best model saved with avg return {best:.1f}")
 
+        pd.DataFrame(train_reward_buffer).to_csv(
+            os.path.abspath("train_rewards.csv"), index=False
+        )
+        pd.DataFrame(eval_reward_buffer).to_csv(
+            os.path.abspath("eval_rewards.csv"), index=False
+        )
         print("Training complete.")
         self.save("final_reinforce.pth")
         print(f"Final model avg return {current:.1f} saved.")
