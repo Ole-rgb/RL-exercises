@@ -1,9 +1,7 @@
 # configs/reinforce.yaml
 hydra:
   run:
-    dir: "${outpath}/${agent.name}/${env.name}/seed_${seed}"
-  sweep:
-    dir: "${outpath}/${agent.name}/${env.name}/seed_${seed}"
+    dir: "${outpath}/${agent.name}/seed_${seed}/timestamp_${now:$Y-%m-%d_%H-%M-%S}"
 
 # Gymnasium environment settings
 env:
