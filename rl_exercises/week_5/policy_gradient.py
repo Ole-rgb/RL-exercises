@@ -417,7 +417,9 @@ def main(cfg: DictConfig) -> None:
     """
     # Initialize environment and seed
     print(f"config: {cfg}")
-    env = gym.make(cfg.env.name, **cfg.env.kwargs)
+
+    env_kwargs = cfg.env.get("kwargs", {})
+    env = gym.make(cfg.env.name, **env_kwargs)
     set_seed(env, cfg.seed)
 
     # Instantiate agent with hyperparameters from config

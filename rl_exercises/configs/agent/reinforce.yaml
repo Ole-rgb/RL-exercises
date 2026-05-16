@@ -5,13 +5,7 @@ hydra:
 
 # Gymnasium environment settings
 env:
-  name: LunarLander-v3
-  kwargs:
-    continuous: false
-    gravity: -10.0
-    enable_wind: false
-    wind_power: 15.0
-    turbulence_power: 1.5
+  name: CartPole-v1
 
 # Random seed for reproducibility
 seed: 0
@@ -21,8 +15,8 @@ agent:
   name: REINFORCE
   lr: 1e-2
   gamma: 0.99
-  hidden_size: 256
-  hidden_layer_count: 2
+  hidden_size: 128
+  hidden_layer_count: 1
 
 # Training settings
 train:
