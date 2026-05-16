@@ -1,4 +1,9 @@
 # configs/reinforce.yaml
+hydra:
+  run:
+    dir: "${outpath}/${agent_name}/${env_name}/seed_${seed}"
+  sweep:
+    dir: "${outpath}/${agent_name}/${env_name}/seed_${seed}"
 
 # Gymnasium environment settings
 env:
@@ -18,3 +23,5 @@ train:
   episodes: 1000        # total episodes to train
   eval_interval: 50     # how often (in episodes) to run evaluation
   eval_episodes: 5      # number of episodes to evaluate
+
+outpath: "results"

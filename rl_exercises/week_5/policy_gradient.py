@@ -329,6 +329,8 @@ class REINFORCEAgent(AbstractAgent):
             Frequency of evaluation prints (default is 10).
         """
         eval_env = gym.make(self.env.spec.id)  # fresh copy for eval
+        best = -float("inf")
+        current = 0
         for ep in range(1, num_episodes + 1):
             state, _ = self.env.reset()
             done = False
@@ -351,8 +353,15 @@ class REINFORCEAgent(AbstractAgent):
             if ep % eval_interval == 0:
                 mean_ret, std_ret = self.evaluate(eval_env, num_episodes=eval_episodes)
                 print(f"[Eval ] Ep {ep:3d} AvgReturn {mean_ret:5.1f} ± {std_ret:4.1f}")
+                current = mean_ret
+                if mean_ret > best:
+                    best = mean_ret
+                    self.save(f"best_reinforce_{ep}.pth")
+                    print(f"New best model saved with avg return {best:.1f}")
 
         print("Training complete.")
+        self.save("final_reinforce.pth")
+        print(f"Final model avg return {current:.1f} saved.")
 
 
 @hydra.main(
