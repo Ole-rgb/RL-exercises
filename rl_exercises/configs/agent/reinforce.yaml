@@ -7,7 +7,13 @@ hydra:
 
 # Gymnasium environment settings
 env:
-  name: CartPole-v1
+  name: LunarLander-v3
+  kwargs:
+    continuous: false
+    gravity: -10.0
+    enable_wind: false
+    wind_power: 15.0
+    turbulence_power: 1.5
 
 # Random seed for reproducibility
 seed: 0

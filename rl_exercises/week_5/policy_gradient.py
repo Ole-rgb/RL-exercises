@@ -328,7 +328,9 @@ class REINFORCEAgent(AbstractAgent):
         eval_interval : int, optional
             Frequency of evaluation prints (default is 10).
         """
-        eval_env = gym.make(self.env.spec.id)  # fresh copy for eval
+        eval_env = gym.make(
+            self.env.spec.id, **self.env.spec.kwargs
+        )  # fresh copy for eval
         best = -float("inf")
         current = 0
         for ep in range(1, num_episodes + 1):
@@ -389,7 +391,7 @@ def main(cfg: DictConfig) -> None:
     """
     # Initialize environment and seed
     print(f"config: {cfg}")
-    env = gym.make(cfg.env.name)
+    env = gym.make(cfg.env.name, **cfg.env.kwargs)
     set_seed(env, cfg.seed)
 
     # Instantiate agent with hyperparameters from config
