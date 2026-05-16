@@ -10,6 +10,7 @@ env:
     enable_wind: false
     wind_power: 15.0
     turbulence_power: 1.5
+    max_episode_steps: 500
     
 agent:
   name: REINFORCE_v2
