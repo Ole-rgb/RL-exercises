@@ -1,0 +1,35 @@
+# configs/ddpg.yaml
+hydra:
+  run:
+    dir: "${outpath}/${agent.name}/seed_${seed}/timestamp_${now:$Y-%m-%d_%H-%M-%S}"
+  job:
+    chdir: true
+
+# Gymnasium environment – must have a continuous (Box) action space
+env:
+  name: Pendulum-v1
+  kwargs: {}
+
+# Random seed for reproducibility
+seed: 0
+
+# Agent hyperparameters
+agent:
+  name: DDPG
+  lr_actor: 1e-4          # actor learning rate
+  lr_critic: 1e-3         # critic learning rate
+  gamma: 0.99             # discount factor
+  tau: 5e-3               # soft-update coefficient (Polyak)
+  buffer_capacity: 100000 # replay buffer size
+  batch_size: 64          # mini-batch size
+  hidden_size: 256        # hidden layer width for actor & critic
+  noise_sigma: 0.2        # OU noise scale for exploration
+  warmup_steps: 1000      # random steps before learning starts
+
+# Training settings
+train:
+  episodes: 300           # total training episodes
+  eval_interval: 20       # evaluate every N episodes
+  eval_episodes: 5        # episodes per evaluation
+
+outpath: "results"

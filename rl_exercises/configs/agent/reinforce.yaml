@@ -13,7 +13,7 @@ seed: 0
 # Agent hyperparameters
 agent:
   name: REINFORCE
-  lr: 1e-2
+  lr: 1e-3
   gamma: 0.99
   hidden_size: 128
   hidden_layer_count: 1
