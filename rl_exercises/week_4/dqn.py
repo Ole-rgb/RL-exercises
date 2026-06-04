@@ -1,0 +1,460 @@
+"""
+Deep Q-Learning implementation.
+"""
+
+from typing import Any, Dict, List, Tuple
+
+import os
+from pathlib import Path
+
+import gymnasium as gym
+import hydra
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from omegaconf import DictConfig
+from rl_exercises.agent import AbstractAgent
+from rl_exercises.week_4.buffers import ReplayBuffer
+from rl_exercises.week_4.networks import QNetwork
+from tqdm import tqdm
+
+
+def set_seed(env: gym.Env, seed: int = 0) -> None:
+    """
+    Seed Python, NumPy, PyTorch and the Gym environment for reproducibility.
+
+    Parameters
+    ----------
+    env : gym.Env
+        The Gym environment to seed.
+    seed : int
+        Random seed.
+    """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    env.reset(seed=seed)
+    # some spaces also support .seed()
+    if hasattr(env.action_space, "seed"):
+        env.action_space.seed(seed)
+    if hasattr(env.observation_space, "seed"):
+        env.observation_space.seed(seed)
+
+
+class DQNAgent(AbstractAgent):
+    """
+    Deep Q‐Learning agent with ε‐greedy policy and target network.
+
+    Derives from AbstractAgent by implementing:
+      - predict_action
+      - save / load
+      - update_agent
+    """
+
+    def __init__(
+        self,
+        env: gym.Env,
+        buffer_capacity: int = 10000,
+        batch_size: int = 32,
+        lr: float = 1e-3,
+        gamma: float = 0.99,
+        epsilon_start: float = 1.0,
+        epsilon_final: float = 0.01,
+        epsilon_decay: int = 500,
+        target_update_freq: int = 1000,
+        network_cfg: DictConfig = DictConfig(
+            {"hidden_dim": 64, "num_linear_layers": 2}
+        ),
+        seed: int = 0,
+    ) -> None:
+        """
+        Initialize replay buffer, Q‐networks, optimizer, and hyperparameters.
+
+        Parameters
+        ----------
+        env : gym.Env
+            The Gym environment.
+        buffer_capacity : int
+            Max experiences stored.
+        batch_size : int
+            Mini‐batch size for updates.
+        lr : float
+            Learning rate.
+        gamma : float
+            Discount factor.
+        epsilon_start : float
+            Initial ε for exploration.
+        epsilon_final : float
+            Final ε.
+        epsilon_decay : int
+            Exponential decay parameter.
+        target_update_freq : int
+            How many updates between target‐network syncs.
+        network_cfg : DictConfig
+            Configuration for the Q-network.
+        seed : int
+            RNG seed.
+        """
+        super().__init__(
+            env,
+            buffer_capacity,
+            batch_size,
+            lr,
+            gamma,
+            epsilon_start,
+            epsilon_final,
+            epsilon_decay,
+            target_update_freq,
+            seed,
+        )
+        self.env = env
+        set_seed(env, seed)
+
+        obs_dim = env.observation_space.shape[0]
+        n_actions = env.action_space.n
+
+        # main Q‐network and frozen target
+        self.q = QNetwork(
+            obs_dim,
+            n_actions,
+            hidden_dim=network_cfg.hidden_dim,
+            num_linear_layers=network_cfg.num_linear_layers,
+        )
+        self.target_q = QNetwork(
+            obs_dim,
+            n_actions,
+            hidden_dim=network_cfg.hidden_dim,
+            num_linear_layers=network_cfg.num_linear_layers,
+        )
+        self.target_q.load_state_dict(self.q.state_dict())
+
+        self.optimizer = optim.Adam(self.q.parameters(), lr=lr)
+        self.buffer = ReplayBuffer(buffer_capacity)
+
+        # hyperparams
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.epsilon_start = epsilon_start
+        self.epsilon_final = epsilon_final
+        self.epsilon_decay = epsilon_decay
+        self.target_update_freq = target_update_freq
+
+        self.total_steps = 0  # for ε decay and target sync
+
+    def epsilon(self) -> float:
+        """
+        Compute current ε by exponential decay.
+
+        Returns
+        -------
+        float
+            Exploration rate.
+        """
+        # DONE: implement exponential‐decayin
+        # ε = ε_final + (ε_start - ε_final) * exp(-total_steps / ε_decay)
+        # Currently, it is constant and returns the starting value ε
+        return self.epsilon_final + (self.epsilon_start - self.epsilon_final) * np.exp(
+            -self.total_steps / self.epsilon_decay
+        )
+
+    def predict_action(
+        self, state: np.ndarray, info: Dict[str, Any] = {}, evaluate: bool = False
+    ) -> Tuple[int, Dict]:
+        """
+        Choose action via ε‐greedy (or purely greedy in eval mode).
+
+        Parameters
+        ----------
+        state : np.ndarray
+            Current observation.
+        info : dict
+            Gym info dict (unused here).
+        evaluate : bool
+            If True, always pick argmax(Q).
+
+        Returns
+        -------
+        action : int
+        info_out : dict
+            Empty dict (compatible with interface).
+        """
+        t = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+        with torch.no_grad():
+            qvals = self.q(t)
+        if evaluate:
+            # DONE: select purely greedy action from Q(s)
+            # purely greedy
+            action = torch.argmax(qvals, dim=1).item()
+        else:
+            # ε-greedy
+            if np.random.rand() < self.epsilon():
+                # DONE: sample random action
+                action = np.random.randint(0, self.env.action_space.n)
+            else:
+                # DONE: select purely greedy action from Q(s)
+                action = torch.argmax(qvals, dim=1).item()
+
+        return int(action), {}
+
+    def save(self, path: str) -> None:
+        """
+        Save model & optimizer state to disk.
+
+        Parameters
+        ----------
+        path : str
+            File path.
+        """
+        torch.save(
+            {
+                "parameters": self.q.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+            },
+            path,
+        )
+
+    def load(self, path: str) -> None:
+        """
+        Load model & optimizer state from disk.
+
+        Parameters
+        ----------
+        path : str
+            File path.
+        """
+        checkpoint = torch.load(path)
+        self.q.load_state_dict(checkpoint["parameters"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+
+    def update_agent(
+        self, training_batch: List[Tuple[Any, Any, float, Any, bool, Dict]]
+    ) -> float:
+        """
+        Perform one gradient update on a batch of transitions.
+
+        Parameters
+        ----------
+        training_batch : list of transitions
+            Each is (state, action, reward, next_state, done, info).
+
+        Returns
+        -------
+        loss_val : float
+            MSE loss value.
+        """
+        # unpack
+        states, actions, rewards, next_states, dones, _ = zip(*training_batch)
+        s = torch.tensor(np.array(states), dtype=torch.float32)
+        a = torch.tensor(np.array(actions), dtype=torch.int64).unsqueeze(1)
+        r = torch.tensor(np.array(rewards), dtype=torch.float32)
+        s_next = torch.tensor(np.array(next_states), dtype=torch.float32)
+        mask = torch.tensor(np.array(dones), dtype=torch.float32)
+
+        # current Q estimates for taken actions
+        # DONE: pass batched states through self.q and gather Q(s,a)
+        pred = self.q(s).gather(1, a).squeeze(1)  # shape (batch,)
+
+        # DONE: compute TD target with frozen network
+        with torch.no_grad():
+            target = r + self.gamma * (1 - mask) * self.target_q(s_next).max(dim=1)[0]
+
+        loss = nn.MSELoss()(pred, target)
+
+        # gradient step
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # occasionally sync target network
+        if self.total_steps % self.target_update_freq == 0:
+            self.target_q.load_state_dict(self.q.state_dict())
+
+        self.total_steps += 1
+        return float(loss.item())
+
+    def train(
+        self,
+        num_frames: int,
+        eval_interval: int = 1000,
+        n_eval_episodes: int = 1,
+        seed: int = 0,
+    ) -> float:
+        """
+        Run a training loop for a fixed number of frames.
+
+        Parameters
+        ----------
+        num_frames : int
+            Total environment steps.
+        eval_interval : int
+            Every this many frames, evaluate the agent.
+        n_eval_episodes : int
+            Number of evaluation episodes.
+        seed : int
+            Random seed for evaluation environments.
+
+        Returns
+        -------
+        float
+            Final evaluation reward.
+        """
+        state, _ = self.env.reset()
+        ep_reward = 0.0
+        recent_rewards: List[float] = []
+        train_reward_buffer = {"steps": [], "train_rewards": []}
+        eval_reward_buffer = {"eval_steps": [], "eval_rewards": []}
+        final_model_path = Path("model.pt").resolve()
+        best_model_path = Path("best_model.pt").resolve()
+        best_eval_reward = float("-inf")
+
+        for frame in range(1, num_frames + 1):
+            action, _ = self.predict_action(state)
+            next_state, reward, done, truncated, _ = self.env.step(action)
+
+            # store and step
+            self.buffer.add(state, action, reward, next_state, done or truncated, {})
+            train_reward_buffer["steps"].append(frame)
+            train_reward_buffer["train_rewards"].append(reward)
+            state = next_state
+            ep_reward += reward
+
+            # update if ready
+            if len(self.buffer) >= self.batch_size:
+                # DONE: sample batch from replay buffer
+                batch = self.buffer.sample(self.batch_size)
+                _ = self.update_agent(batch)
+
+            if done or truncated:
+                state, _ = self.env.reset()
+                recent_rewards.append(ep_reward)
+                ep_reward = 0.0
+                # logging
+                if len(recent_rewards) % 10 == 0:
+                    # DONE: compute avg over last eval_interval episodes and print
+                    avg = sum(recent_rewards[-eval_interval:]) / min(
+                        len(recent_rewards), eval_interval
+                    )
+                    print(
+                        f"Frame {frame}, AvgReward(10): {avg:.2f}, ε={self.epsilon():.3f}"
+                    )
+
+            if frame % eval_interval == 0:
+                eval_env = gym.make(self.env.spec.id)
+                eval_performance = evaluate(
+                    eval_env,
+                    self,
+                    episodes=n_eval_episodes,
+                    seed=seed,
+                )
+                print(f"Eval reward after {frame} steps was {eval_performance}.")
+                eval_reward_buffer["eval_steps"].append(frame)
+                eval_reward_buffer["eval_rewards"].append(eval_performance)
+                if eval_performance > best_eval_reward:
+                    best_eval_reward = eval_performance
+                    self.save(str(best_model_path))
+
+        print("Training complete.")
+        self.save(str(final_model_path))
+        pd.DataFrame(train_reward_buffer).to_csv(
+            os.path.abspath("train_rewards.csv"), index=False
+        )
+        pd.DataFrame(eval_reward_buffer).to_csv(
+            os.path.abspath("eval_rewards.csv"), index=False
+        )
+
+        final_eval_env = gym.make(self.env.spec.id)
+        final_eval = evaluate(
+            final_eval_env,
+            self,
+            episodes=n_eval_episodes,
+            seed=seed,
+        )
+        if final_eval > best_eval_reward:
+            best_eval_reward = final_eval
+            self.save(str(best_model_path))
+        print(f"Final eval reward was: {final_eval}")
+        print(f"Best eval reward was: {best_eval_reward}")
+        return final_eval
+
+
+def evaluate(
+    env: gym.Env, agent: AbstractAgent, episodes: int = 100, seed: int = 0
+) -> float:
+    """
+    Evaluate a given agent on an environment.
+
+    Parameters
+    ----------
+    env : gym.Env
+        Environment to evaluate on.
+    agent : AbstractAgent
+        Agent to evaluate.
+    episodes : int
+        Evaluation episodes.
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    float
+        Mean evaluation reward.
+    """
+    episode_rewards: List[float] = []
+    pbar = tqdm(total=episodes)
+    for _ in range(episodes):
+        obs, info = env.reset(seed=seed)
+        episode_rewards.append(0)
+        done = False
+        episode_steps = 0
+        while not done:
+            action, _ = agent.predict_action(obs, info, evaluate=True)
+            obs, reward, terminated, truncated, _ = env.step(action)
+            episode_rewards[-1] += reward
+            episode_steps += 1
+            if terminated or truncated:
+                done = True
+                pbar.set_postfix(
+                    {
+                        "episode reward": episode_rewards[-1],
+                        "episode step": episode_steps,
+                    }
+                )
+        pbar.update(1)
+    pbar.close()
+    env.close()
+    return float(np.mean(episode_rewards))
+
+
+@hydra.main(config_path="../configs/agent/", config_name="dqn", version_base="1.1")
+def main(cfg: DictConfig):
+    # 1) build env
+    env = gym.make(cfg.env.name)
+    set_seed(env, cfg.seed)
+
+    # 2) DONE: map config → agent kwargs
+    agent_kwargs = dict()
+    agent_kwargs["buffer_capacity"] = cfg.agent.buffer_capacity
+    agent_kwargs["batch_size"] = cfg.agent.batch_size
+    agent_kwargs["lr"] = cfg.agent.learning_rate
+    agent_kwargs["gamma"] = cfg.agent.gamma
+    agent_kwargs["epsilon_start"] = cfg.agent.epsilon_start
+    agent_kwargs["epsilon_final"] = cfg.agent.epsilon_final
+    agent_kwargs["epsilon_decay"] = cfg.agent.epsilon_decay
+    agent_kwargs["target_update_freq"] = cfg.agent.target_update_freq
+    agent_kwargs["seed"] = cfg.agent.seed
+
+    agent_kwargs["network_cfg"] = cfg.network
+
+    # 3) DONE: instantiate & train
+    agent = DQNAgent(env, **agent_kwargs)
+    agent.train(
+        cfg.train.num_frames,
+        cfg.train.eval_interval,
+        cfg.train.n_eval_episodes,
+        cfg.seed,
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,77 @@
+L3 Observations — exp2 Comparison (Baseline vs Prioritized Replay vs Double DQN)
+=================================================================================
+
+Setup
+-----
+Experiment 2 compares four variants of `extended_dqn` on `CartPole-v1` with 3 seeds
+(`0`, `1`, `10`):
+
+- baseline = normal DQN + uniform replay
+- prioritized replay = normal DQN + prioritized replay
+- double dqn = Double DQN + uniform replay
+- double dqn + prioritized = Double DQN + prioritized replay
+
+The RLiable figures for this experiment are:
+
+- `exp2_sample_efficiency.png`
+- `exp2_final_metrics.png`
+
+What the figures show
+---------------------
+The strongest result is that prioritized replay is clearly the best-performing variant.
+Its final evaluation scores are `259`, `500`, and `316`, which are all above or equal
+to the corresponding baseline and Double DQN results. In the sample-efficiency plot, it
+also learns faster and stays above the other variants for most of training.
+
+Double DQN alone gives a small improvement over the baseline. Its final scores
+(`212`, `155`, `210`) are slightly better on average than baseline
+(`156`, `198`, `192`), and the final normalized mean/IQM/median moves from about
+`0.364` to `0.385`. This is a real but fairly modest gain.
+
+The combined variant `double dqn + prioritized` performs worst. Its final scores
+(`162`, `152`, `95`) are lower than all other variants, and its optimality gap is the
+largest. So in this small experiment, combining the two modifications does not help;
+instead it appears to destabilize learning.
+
+How to interpret the RLiable metrics here
+-----------------------------------------
+With only 3 seeds per variant, the reported IQM, median, and mean are numerically the
+same for all four methods. That is not a bug in the plotting. It happens because with
+so few samples, the robust summaries collapse to nearly the same statistic. This means
+the final-metric plot is still useful for ranking methods, but it is less informative
+about distribution shape than it would be with more seeds.
+
+Even with that limitation, the ordering is very clear:
+
+- prioritized replay: best
+- double dqn: second
+- baseline: third
+- double dqn + prioritized: worst
+
+The optimality-gap panel tells the same story from the opposite direction. Prioritized
+replay has the smallest gap to the normalized optimum, while `double dqn + prioritized`
+has the largest.
+
+Confidence in the results
+-------------------------
+I am more confident in the direction of the ranking than I would be from a single-seed
+comparison, because all methods were evaluated across multiple seeds and the same
+qualitative conclusion appears in both the sample-efficiency and final-metric plots.
+
+However, confidence is still limited because the comparison only uses 3 seeds. That is
+enough to see a strong difference when one method is consistently better, as prioritized
+replay is here, but it is not enough to make subtle claims about smaller differences or
+about the exact uncertainty. In particular, the equality of mean, median, and IQM in
+this setting should be interpreted as a consequence of low sample count, not as evidence
+that the seed distributions are perfectly symmetric.
+
+Conclusion
+----------
+For `exp2`, prioritized replay is the clear winner. It improves both sample efficiency
+and final performance relative to the baseline. Double DQN by itself helps a little, but
+the gain is much smaller than the gain from prioritized replay. Combining Double DQN
+with prioritized replay performs surprisingly badly in these runs, so the two extensions
+do not appear complementary under the current hyperparameter settings.
+
+
+NOTE: the solutions were aided by AI.

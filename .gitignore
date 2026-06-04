@@ -148,4 +148,4 @@ rl_exercises/week_2/figures/mars_rover.png
 results/
 
 # MacOS
-.DS_Store
+**/.DS_Store

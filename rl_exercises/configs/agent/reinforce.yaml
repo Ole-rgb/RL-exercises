@@ -1,4 +1,7 @@
 # configs/reinforce.yaml
+hydra:
+  run:
+    dir: "${outpath}/${agent.name}/seed_${seed}/timestamp_${now:$Y-%m-%d_%H-%M-%S}"
 
 # Gymnasium environment settings
 env:
@@ -9,12 +12,16 @@ seed: 0
 
 # Agent hyperparameters
 agent:
-  lr: 1e-2
+  name: REINFORCE
+  lr: 1e-3
   gamma: 0.99
   hidden_size: 128
+  hidden_layer_count: 1
 
 # Training settings
 train:
   episodes: 1000        # total episodes to train
   eval_interval: 50     # how often (in episodes) to run evaluation
   eval_episodes: 5      # number of episodes to evaluate
+
+outpath: "results"

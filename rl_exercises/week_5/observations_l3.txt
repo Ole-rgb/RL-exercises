@@ -1,0 +1,82 @@
+Level 3 Observations: DDPG vs REINFORCE
+=======================================
+
+Environment
+-----------
+- REINFORCE: CartPole-v1 (discrete actions, max return 500)
+- DDPG:      Pendulum-v1 (continuous actions, reward range ~[-1600, 0])
+
+REINFORCE Results (CartPole-v1)
+-------------------------------
+- Episodes to solve (avg return >= 475): ~500
+- Final avg return (ep 1000):            500.0 ± 0.0
+- Total env steps:                       ~250,000 (variable episode length)
+- Notes: Converged cleanly by ep 500, held perfect score through ep 1000.
+
+DDPG Results (Pendulum-v1)
+--------------------------
+- Best eval avg return:                  -129.83 (ep 280, single episode)
+- Final eval avg return (ep 300):        -149.18 ± 81.54
+- Total env steps:                       60,000 (300 eps × 200 steps) + 1000 warmup
+- Notes: The agent learned a reasonable policy (best single return -129.83 is
+  well above the -1600 worst case), but did not fully converge within 300 episodes.
+  The high std (±81) and the degradation from ep 280 to ep 300 indicate the policy
+  is still unstable at this point. Running for 500+ episodes would likely yield
+  a more stable result around -150 to -200.
+
+Comparison
+----------
+Sample Complexity
+-----------------
+- REINFORCE solved CartPole in ~500 episodes / ~125,000 steps.
+- DDPG reached a reasonable policy on Pendulum in ~280 episodes / ~57,000 steps,
+  but did not fully converge within the 300-episode budget.
+- Per-episode, DDPG is more sample-efficient: each step produces one gradient
+  update (off-policy replay), whereas REINFORCE waits for a full episode before
+  updating (on-policy).
+- However, DDPG requires a 1000-step warmup before any learning begins, and
+  Pendulum is a harder environment than CartPole, making direct comparison tricky.
+
+Stability
+---------
+- REINFORCE is high-variance: returns fluctuate significantly between episodes
+  because each update uses a single on-policy trajectory (no experience reuse).
+- DDPG shows more stable learning overall due to:
+    1. Replay buffer: breaks temporal correlations, reuses past transitions.
+    2. Target networks (soft-updated via Polyak averaging): prevents the
+       moving-target instability seen in naive Q-learning.
+    3. Deterministic policy: lower-variance gradient estimates compared to
+       stochastic policy gradient methods.
+- Despite this, the DDPG run showed some instability late in training (return
+  worsened from ep 280 to ep 300), which is common with OU noise and a small
+  episode budget.
+
+Why DDPG Works Where Previous Methods Failed (from the paper)
+-------------------------------------------------------------
+- Prior actor-critic methods in continuous spaces were unstable with neural nets.
+- DDPG borrows two key DQN ideas: experience replay and target networks.
+- The deterministic policy gradient theorem (Silver et al., 2014) provides a
+  low-variance gradient that scales to high-dimensional continuous action spaces.
+- Batch normalisation (optional) helps with varying observation/action scales
+  across environments.
+
+Action Space
+------------
+- REINFORCE works on discrete action spaces via a softmax policy; extending to
+  continuous spaces requires a separate distribution (e.g. Gaussian), which
+  increases variance.
+- DDPG sidesteps this by learning a deterministic policy and adding explicit
+  exploration noise (Ornstein-Uhlenbeck process) at interaction time only.
+
+Plots
+-----
+- [Attach: reinforce_cartpole_returns.png]
+- [Attach: ddpg_pendulum_returns.png]
+- [Attach: comparison_returns]
+
+Additional Notes
+----------------
+- The Hydra working-directory warning was suppressed by adding `hydra.job.chdir: true`
+  to ddpg.yaml, explicitly opting in to the 1.1 behaviour.
+- To get a fairer comparison, consider running DDPG for 500 episodes and plotting
+  return vs. total env steps (not episodes) for both agents.

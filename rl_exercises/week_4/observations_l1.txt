@@ -1,0 +1,140 @@
+L1 Observations — DQN on CartPole-v1
+======================================
+
+Setup
+-----
+Environment  : CartPole-v1
+Training     : 20,000 frames total
+Evaluation   : every 1,000 frames
+Seeds        : 3 (mean ± std shown as shaded bands in all plots)
+Baseline     : hidden_dim=64, num_layers=2, buffer=10000, batch=32, lr=1e-3
+
+Each hyperparameter (width, depth, buffer-size, batch-size) was adapted independently,
+while holding all other hyperparameters at their baseline.
+
+The plots can be observed "rl_exercises/week_4/plots/l1/
+-----------------------------------------------------------------------
+1. Effect of Network Width  [plot_width.png]
+   (hidden_dim = 32 / 64 / 256)
+-----------------------------------------------------------------------
+All three widths learn from an initial reward , but differ clearly
+in speed and stability across seeds.
+
+- narrow (32): Learns quickly relative to its size, reaching ~250 by
+  frame 7000 with a tight std band. However it plateaus early and ends
+  around 175, suggesting a capacity ceiling. The network cannot represent
+  the Q-function precisely enough for longer episodes.
+
+- baseline (64): Slower initial rise but a steady upward trend throughout.
+
+- wide (256): Consistently the highest-performing configuration. Its mean
+  is clearly above the others from frame 7000 onwards. The std band is the
+  widest throughout, confirming that the wide network learns faster on
+  average but is also the most sensitive to the random seed.
+
+Interpretation: Width provides a real advantage for CartPole. 
+The wide network's consistently higher mean is a genuine effect, not 
+just a lucky seed. However, the high variance suggests that the large
+network is more prone to the moving-target instability: larger Q-value
+shifts per gradient update mean that a single bad target estimate can
+knock the policy off course. This trades off higher capacity and faster
+learning but less stability.
+
+-----------------------------------------------------------------------
+2. Effect of Network Depth  [plot_depth.png]
+   (num_layers = 1 / 2 / 4)
+-----------------------------------------------------------------------
+- shallow (1): High variance early (std band is wide), reflecting that
+  a single linear layer is sensitive to initialisation. The mean 
+  stabilises around 120–140 before showing steady improvement, ending 
+  at ~225. Despite its simplicity it remains competitive.
+
+- baseline (2): The most consistent improver. Its std band is relatively
+  small throughout and its mean climbs steadily, peaking at ~365 near frame
+  18000. This is the best final performance of the three depth configs.
+
+- deep (4): Shows the highest early variance, indicating that some 
+  seeds learn fast initially while others barely improve. After frame
+  7000 the mean settles into a plateau, well below the baseline, and only 
+  recovers slightly at the very end. Extra depth consistently hurts
+  mid-training performance here.
+
+Interpretation: CartPole has a 4-dimensional state space and a smooth,
+relatively simple Q-function. Extra layers add no benefit but do add 
+more parameters to optimise (slowing convergence). The fact that
+depth=2 outperforms depth=4 across all 3 seeds (their std bands barely 
+overlap after frame 8000) makes this a statistically credible conclusion
+even with 3 seeds.
+
+-----------------------------------------------------------------------
+3. Effect of Replay Buffer Size  [plot_buffer.png]
+   (capacity = 500 / 10000 / 50000)
+-----------------------------------------------------------------------
+- tiny (500): Reaches a mean of ~235 by frame 5000 (the fastest early
+  learner), but with an enormous std band. That means some seeds collapse 
+  while others perform well. After frame 5000 the mean declines steadily. 
+  This is the only configuration with mean reward falling over time.
+
+- baseline (10000): Steady and consistent improvement throughout. Peaks
+  at ~365 around frame 17500 and ends at ~290. Its std band is moderate
+  and widens only in late training.
+
+- large (50000): The smoothest trajectory of all configurations across
+  the entire experiment. The std band remains relatively tight throughout 
+  and the mean climbs reliably from ~150 at frame 5000 to ~275 by frame 20000.
+  It never peaks as high as the baseline but never collapses either.
+
+Interpretation: Buffer size is a important hyperparameter.
+DQN requires i.i.d. samples to produce stable estimates. A buffer of
+only 500 with batch size 32 means the network repeatedly resamples the
+same recent transitions, violating this assumption. The huge early variance
+(some seeds do well, others fail immediately) shows that performance is 
+essentially a function of whether the first few hundred transitions happen to 
+be diverse. The inevitable mean decline after frame 5000 reflects the policy 
+overfitting to recent experience and forgetting earlier behaviour.
+The large buffer prevents this but slows learning because it dilutes
+recent, higher-quality transitions with a large volume of old, random-
+policy data. A buffer of 10000 provides the best balance between
+diversity and recency within the 20000-frame budget.
+
+-----------------------------------------------------------------------
+4. Effect of Batch Size  [plot_batch.png]
+   (batch = 8 / 32 / 256, buffer fixed at 10000)
+-----------------------------------------------------------------------
+- small (8): Reaches ~230 early, but with a large std band.
+  Settles around 175–210 in the middle phase and ends at ~260.
+
+- baseline (32): Steady improvement, ends at ~295 with a moderate std
+  band.
+
+- large (256): Biggest std band across frames, with high variance throughout.
+  The band extends to 500 near frame 20000, driven by at least one seed 
+  achieving near-maximum reward. Mean ends highest at ~410, but this late
+  divergence is not reliable across seeds.
+
+Interpretation: The three std bands overlap for virtually the entire
+training run, confirming that batch size has the smallest effect of the
+four axes studied. No configuration is distinguishable from the others
+with statistical confidence at 3 seeds. The large batch's late-training
+mean advantage is interesting but its equally large std band means it
+is not a reliable improvement (it may reflect one lucky seed). The main
+difference large batches are can diverge later.
+
+-----------------------------------------------------------------------
+Summary and Key Takeaways
+-----------------------------------------------------------------------
+1. All configurations successfully learn, improving from ~10 to 150–440
+   across 20000 frames.
+
+2. No configuration has fully converged by 20000 frames; all mean curves
+   are still trending upward at the end, suggesting longer training would
+   reveal clearer differences.
+
+3. The tiny buffer (500) is a clearly bad, as it declines over time.
+
+4. Width helps but increases seed sensitivity. The wide network is 
+   consistently the best-performing configuration on average, but
+   also the most prone to large inter-seed variance.
+
+5. Depth provides no benefit for this environment and actively hurts
+   mid-training performance at depth=4.

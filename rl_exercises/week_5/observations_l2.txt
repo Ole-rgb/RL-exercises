@@ -1,0 +1,20 @@
+Observations for Level 2
+
+- The default setup was not able to solve LunarLander-v3, the older v2 environment is deprecated, so we just tested on v3.
+- The first change was to the network architecture by adding an extra hidden layer.
+- That alone was not enough; the learning rate also had to be decreased. With the lower learning rate, the agent started showing the first signs of positive reward on LunarLander.
+
+Trajectory length experiments:
+NOTE: conducted on the LunarLander environment:
+
+Plot: ./plots/Trajectory_plots.png
+
+- Using the updated base setup of width 128, 2 hidden layers, and learning rate `1e-3`, we tested different `max_episode_steps` values.
+- The tested trajectory limits were `250`, `300`, `400`, `500`, and `1000`.
+- At `250` steps, the model was not able to solve the environment at all, with zero runs reaching reward greater than `200`.
+- The `300`, `400`, `500`, and `1000` step settings all produced runs with reward greater than `200`, but their behavior was quite different.
+- `300` steps reached the threshold `5` times, but only very late in training, with the first success at episode `889` and a mean success episode around `922.8`.
+- `400` steps reached the threshold `6` times and did so earlier than `300`, with the earliest success at episode `568` and mean success around `727.7`.
+- `500` steps reached the threshold only `3` times, and all successful runs happened very late, at episode `972`, so this setting looks less stable despite being able to solve the task.
+- `1000` steps was by far the strongest setting, reaching reward greater than `200` a total of `101` times, with the earliest success already at episode `437` and a mean success episode around `770.1`.
+- Overall, increasing the trajectory length clearly helped. Very short trajectories (`250`) prevented solving, medium settings (`300` to `500`) allowed occasional success, and the full `1000`-step limit gave both the highest success count and the earliest successful solution.

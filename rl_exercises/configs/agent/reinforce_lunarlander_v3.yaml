@@ -1,0 +1,18 @@
+defaults:
+  - reinforce
+  - _self_
+
+env:
+  name: LunarLander-v3
+  kwargs:
+    continuous: false
+    gravity: -10.0
+    enable_wind: false
+    wind_power: 15.0
+    turbulence_power: 1.5
+    max_episode_steps: 500
+    
+agent:
+  name: REINFORCE_v2
+  hidden_size: 128
+  hidden_layer_count: 2
