@@ -1,0 +1,96 @@
+Observations for Level 2: PPO Variants on LunarLander-v3
+
+Algorithms compared:
+  - AC-GAE:         On-policy actor-critic with GAE (from Level 1)
+  - PPO-vanilla:    PPO without LR annealing or KL stopping
+  - PPO-enhanced:   PPO + linear LR annealing + KL early stopping
+
+Seeds: 0, 1, 2 | Total steps: 200,000 | Eval interval: 10,000
+Enhancements implemented:
+  1. Linear LR annealing (lr → 0 linearly over total_steps)
+  2. KL early stopping (abort epoch if approx KL > 1.5 * kl_target=0.01)
+
+
+Numeric Summary (final mean return at step 200k) -
+
+  AC-GAE:
+    Seed 0: -835.9 | Seed 1: -1100.8 | Seed 2: -725.0
+    IQM across seeds: approximately -887
+
+  PPO-vanilla:
+    Seed 0: +134.1 | Seed 1: -64.5 | Seed 2: +4.5
+    IQM across seeds: approximately +25
+
+  PPO-enhanced:
+    Seed 0: +112.3 | Seed 1: -34.1 | Seed 2: +68.5
+    IQM across seeds: approximately +49
+
+Key Observations -
+
+1. PPO vs. AC-GAE — massive gap:
+   Both PPO variants completely dominate AC-GAE. By step 200k, PPO-vanilla seed 0
+   reaches +134 while AC-GAE seed 0 is still at -836. The gap is consistent
+   across all seeds.
+
+   Why? The key structural difference is mini-batch training over multiple epochs.
+   AC-GAE does a single gradient step on each trajectory, then discards it.
+   PPO reuses the same rollout for 4 epochs with 64-sample mini-batches, giving
+   the critic and actor many more gradient steps per environment interaction.
+   This dramatically improves sample efficiency on LunarLander.
+
+2. PPO-vanilla trajectory:
+   Fast early improvement: seed 0 goes from -222 at 10k steps to +164 at 100k.
+   After 100k it plateaus and shows some instability — seed 0 hovers around +130-
+   180 without consistent improvement, seed 1 oscillates around zero.
+   The lack of a trust-region mechanism on the step size allows the policy to
+   occasionally take too-large steps and partially unlearn good behavior.
+
+3. PPO-enhanced trajectory:
+   Slightly slower initial improvement (seed 0 is at -304 at 10k vs -222 for
+   vanilla), likely because LR annealing reduces the learning rate even early on.
+   However, the late-training behavior is more consistent: seed 0 reaches +112
+   and seed 2 reaches +68 with a clear upward trend in the last 50k steps.
+   Seed 1 remains negative for both variants — this seed appears to be unlucky
+   and would likely converge given more steps.
+
+4. Enhancement 1 — Linear LR annealing:
+   Reduces the learning rate from its initial value to 0 over the course of
+   training. This prevents large destructive updates in the later stages when
+   the policy is near-optimal and a coarse step could destabilize it.
+   The tradeoff is slightly slower improvement early on, visible in the numbers.
+   Overall it helps in seed 2 (+68.5 vs +4.5 for vanilla) significantly.
+
+5. Enhancement 2 — KL early stopping:
+   Aborts the remaining training epochs for a rollout when the approximate KL
+   divergence between old and new policy exceeds 1.5×kl_target.
+   This acts as a complementary soft constraint to the clipped surrogate —
+   even if individual mini-batch gradients stay within the clip range, repeated
+   epochs can push the policy too far. The early stop prevents this.
+   The effect is hard to isolate from annealing alone, but the reduced
+   instability in the second half of training (fewer dips below zero after
+   step 100k in seed 0) is consistent with a tighter trust region.
+
+6. Neither PPO variant reaches the target of ~200+ by step 200k consistently.
+   This is expected — LunarLander typically needs ~500k–1M steps for PPO to
+   reliably land. What matters is the qualitative difference: PPO clearly learns
+   a useful policy (positive returns) while AC-GAE does not, confirming that
+   the clip objective + mini-batch reuse is the key driver of performance here.
+
+Conceptual Justification for PPO vs. Actor-Critic -
+
+Actor-Critic (on-policy, single update per rollout):
+  - One gradient step per episode → very low data utilization
+  - Policy can change arbitrarily per update (no constraint) → unstable
+  - No replay of past experience
+
+PPO additions:
+  - Multiple epochs: the same data is used K=4 times → higher data efficiency
+  - Clipped surrogate: π_new/π_old is clipped to [1-ε, 1+ε], preventing the
+    policy from moving too far on any single batch
+  - Entropy bonus: explicitly encourages exploration to avoid premature
+    convergence to a suboptimal policy
+  - Value loss coefficient: jointly optimizes actor and critic, with vf_coef
+    controlling the relative weight to prevent one dominating the gradient
+
+These design choices together explain the order-of-magnitude improvement in
+final performance over plain actor-critic on LunarLander.

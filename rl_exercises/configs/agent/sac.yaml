@@ -1,0 +1,28 @@
+# configs/agent/sac.yaml
+# Hydra configuration for SACAgent training.
+# SAC is an off-policy algorithm suited to continuous action spaces.
+# We use LunarLanderContinuous-v3 so that SAC and PPO solve the same task
+# family, making the comparison meaningful.
+
+env:
+  name: LunarLanderContinuous-v3
+
+# Global random seed
+seed: 0
+
+agent:
+  lr: 3e-4             # single learning rate for all networks
+  gamma: 0.99
+  tau: 0.005           # Polyak soft-update coefficient for target critic
+  alpha: 0.2           # initial entropy temperature (overridden if auto_alpha=true)
+  auto_alpha: true     # automatic entropy-temperature tuning
+  batch_size: 256
+  buffer_size: 1000000
+  learning_starts: 1000  # random exploration steps before first gradient update
+  update_freq: 1         # gradient updates per env step
+  hidden_size: 256
+
+train:
+  total_steps: 200000
+  eval_interval: 10000
+  eval_episodes: 5

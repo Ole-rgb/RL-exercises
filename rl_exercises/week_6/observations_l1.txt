@@ -1,0 +1,98 @@
+Observations for Level 1: On-Policy Actor-Critic Baselines
+
+Environments: CartPole-v1, LunarLander-v3
+Baselines compared: none, avg (running average), value (learned V), gae (Generalized Advantage Estimation)
+Seeds: 0, 1, 2 | Total steps: 200,000 | Eval interval: 10,000
+
+CartPole-v1 Results - 
+
+All four baselines eventually reach near-optimal performance (~500) on CartPole,
+but they differ in speed and stability.
+
+  none  (no baseline):
+    Seeds converge to 500 relatively early (~50k–110k steps depending on seed).
+    Seed 1 hits 500 as early as step 20k. Seed 0 takes until ~140k.
+    Final returns: 500.0 / 500.0 / 500.0 (all three seeds).
+
+  avg (running-average baseline):
+    Slightly more volatile than 'none' mid-training — seed 0 dips to 187 at step
+    70k and seed 2 drops to 244 at step 120k before recovering.
+    Final returns: 500.0 / 491.8 / 422.6.
+    Seed 2 notably fails to fully converge within 200k steps.
+
+  value (learned value function):
+    Slower early learning than 'none' — seed 0 stays below 300 until step 60k,
+    seed 2 stays below 400 until step 110k.
+    Once it learns the value function, convergence is steady and stable.
+    Final returns: 500.0 / 500.0 / 481.0.
+
+  gae (Generalized Advantage Estimation):
+    The slowest to converge on CartPole among the four. Seed 0 drops to 177 at
+    step 140k; seed 2 drops to 300 at step 170k.
+    This is somewhat surprising, as GAE is more sophisticated — the instability
+    here likely reflects that GAE's bootstrapping benefit is less pronounced on
+    the short-horizon CartPole task, and the critic noise adds variance early on.
+    Final returns: 461.6 / 466.2 / 418.6.
+
+LunarLander-v3 Results -
+
+LunarLander is significantly harder. None of the four baselines converges to a
+positive return within 200k steps. All remain deeply negative throughout.
+
+  none:
+    Returns stay in the range [-300, -3965] across all seeds. Seed 2 catastrophi-
+    cally diverges to -3965 around step 100k before partially recovering.
+    Final returns: -558.1 / -428.1 / -430.3.
+
+  avg:
+    Similar range to 'none' but seed 2 collapses to -5793 at step 90k — the
+    worst single result across all baselines. The running-average baseline is a
+    global scalar and gives poor credit assignment on a task with long, variable
+    episodes like LunarLander.
+    Final returns: -342.1 / -593.7 / -1074.0.
+
+  value:
+    Despite slower convergence seen on CartPole, value does not show catastrophic
+    collapses quite as badly. Seeds 0 and 2 stay in the -500 to -900 range by the
+    end. Seed 1 remains very negative (~-975).
+    Final returns: -538.7 / -975.5 / -902.3.
+
+  gae:
+    Mixed results. Seed 0 gradually improves from -320 → -576 by step 160k then
+    degrades slightly. Seed 2 shows the clearest improvement trend: starting at
+    -1655 and ending at -661.
+    Final returns: -1265.4 / -1437.7 / -661.0.
+    GAE's multi-step advantage trades off bias for variance in a way that can help
+    on longer horizons but requires more steps to see benefit.
+
+Analysis and Conceptual Justification -
+
+1. Baseline hierarchy on CartPole (by stability):
+   none ≈ avg > value > gae
+   CartPole has short episodes and low-variance returns, so even no baseline
+   works well. The raw return signal is already informative.
+
+2. Baseline hierarchy on LunarLander (no winner, but trends):
+   gae (seed 2) shows the most consistent improvement trajectory.
+   avg suffers from high variance — a single scalar can't capture the
+   structure of a 200-step continuous-control episode.
+   value is theoretically correct but prone to instability in single-epoch
+   on-policy updates (critic can be noisy early and mislead the actor).
+
+3. Variance reduction vs. bias tradeoff:
+   - 'none': unbiased but high variance. Works fine on short-horizon problems.
+   - 'avg': reduces some variance via EMA baseline, but biased when episodes
+     vary widely in length and return magnitude (as in LunarLander).
+   - 'value': low bias when V(s) is accurate, significant variance reduction.
+     However, learning V in parallel with the policy creates instability.
+   - 'gae': interpolates between 1-step TD (low variance, high bias) and
+     Monte-Carlo (high variance, low bias) via λ=0.95. On hard tasks it
+     provides the best of both worlds given enough data, but requires a
+     well-trained critic.
+
+4. Key takeaway:
+   On simple tasks all methods work. On harder tasks like LunarLander, 200k
+   steps is simply not enough for any on-policy actor-critic variant to solve
+   the task. GAE shows the most promise with a clear downward trend in negative
+   returns on seed 2. PPO (Level 2) addresses this via mini-batch reuse and
+   trust-region clipping, which should show meaningful improvement.
