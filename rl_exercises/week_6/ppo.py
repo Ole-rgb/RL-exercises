@@ -55,6 +55,20 @@ class PPOAgent(AbstractAgent):
         vf_coef: float = 0.5,
         seed: int = 0,
         hidden_size: int = 128,
+        # Enhancement 1: linear LR annealing
+        # Linearly decaying the learning rate towards zero over training helps
+        # stabilise updates in the later stages when the policy is near-optimal
+        # and large steps could destabilise it. Classic trick from the 37-details
+        # PPO blog post.
+        lr_anneal: bool = True,
+        total_steps: int = 200_000,
+        # Enhancement 2: KL early-stopping
+        # If the approximate KL divergence between old and new policy exceeds a
+        # threshold we abort the remaining epochs for that rollout. This bounds
+        # how far the policy moves per update — a softer alternative to clipping
+        # that complements the surrogate objective rather than replacing it.
+        kl_target: float = 0.01,
+        use_kl_stopping: bool = True,
     ) -> None:
         set_seed(env, seed)
         self.seed = seed
@@ -66,6 +80,12 @@ class PPOAgent(AbstractAgent):
         self.batch_size = batch_size
         self.ent_coef = ent_coef
         self.vf_coef = vf_coef
+        self.lr_anneal = lr_anneal
+        self.total_steps = total_steps
+        self.kl_target = kl_target
+        self.use_kl_stopping = use_kl_stopping
+        self.lr_actor = lr_actor
+        self.lr_critic = lr_critic
 
         # networks
         self.policy = Policy(env.observation_space, env.action_space, hidden_size)
@@ -100,10 +120,38 @@ class PPOAgent(AbstractAgent):
         next_values: torch.Tensor,  # noqa: F841
         dones: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # TODO: compute advantages using GAE (Hint: replicate the GAE formula from actor critic)
-        return None  # template placeholder
+        # Replicate the GAE formula from actor_critic:
+        #   δ_t = r_t + γ·V(s_{t+1})·(1 - done_t) - V(s_t)
+        #   A_t = δ_t + (γ·λ)·(1 - done_t)·A_{t+1}
+        rewards_t = torch.tensor(rewards, dtype=torch.float32)
+        deltas = rewards_t + self.gamma * next_values * (1.0 - dones) - values
 
-    def update(self, trajectory: List[Any]) -> None:
+        T = len(rewards)
+        advantages = torch.zeros(T)
+        gae = 0.0
+        for t in reversed(range(T)):
+            gae = deltas[t].item() + self.gamma * self.gae_lambda * (1.0 - dones[t].item()) * gae
+            advantages[t] = gae
+
+        # Returns = advantages + V(s_t) — used as value-function regression targets
+        returns = advantages + values
+
+        # Normalise advantages (standard PPO practice for stable updates)
+        advantages = (advantages - advantages.mean()) / (
+            advantages.std(unbiased=False) + 1e-8
+        )
+
+        return advantages.detach(), returns.detach()
+
+    def update(self, trajectory: List[Any], step_count: int = 0) -> None:
+        # ── Enhancement 1: linear LR annealing ──────────────────────────────
+        # Scale LR linearly from initial value → 0 as step_count → total_steps.
+        # This mirrors the approach in Andrychowicz et al. and the 37-details post.
+        if self.lr_anneal and self.total_steps > 0:
+            frac = 1.0 - step_count / self.total_steps
+            for i, param_group in enumerate(self.optimizer.param_groups):
+                base_lr = self.lr_actor if i == 0 else self.lr_critic
+                param_group["lr"] = base_lr * frac
         # unpack trajectory
         states = torch.stack([torch.from_numpy(t[0]).float() for t in trajectory])
         actions = torch.tensor([t[1] for t in trajectory])
@@ -112,14 +160,15 @@ class PPOAgent(AbstractAgent):
         rewards = [t[4] for t in trajectory]
         dones = torch.tensor([t[5] for t in trajectory], dtype=torch.float32)
 
-        # TODO: compute values and next_values without gradients
-        values = ...  # noqa: F841  # template placeholder
-        next_values = ...  # noqa: F841  # template placeholder
+        # Compute values and next_values without gradients (they serve as fixed targets)
+        with torch.no_grad():
+            values = self.value_fn(states).squeeze(-1)           # (T,)
+            next_states_t = torch.stack(
+                [torch.from_numpy(t[6]).float() for t in trajectory]
+            )
+            next_values = self.value_fn(next_states_t).squeeze(-1)  # (T,)
 
-        # TODO: compute advantages and returns
-        advantages = ...  # template placeholder
-        returns = ...  # template placeholder
-
+        # Compute advantages and returns via GAE
         advantages, returns = self.compute_gae(rewards, values, next_values, dones)
 
         dataset = torch.utils.data.TensorDataset(
@@ -130,22 +179,40 @@ class PPOAgent(AbstractAgent):
         )
 
         for _ in range(self.epochs):
+            # Enhancement 2: KL early-stopping
+            # Before each epoch check the average KL divergence of the *full*
+            # dataset. If it already exceeds the target threshold we stop early
+            # rather than continuing to push the policy further away.
+            if self.use_kl_stopping:
+                with torch.no_grad():
+                    all_probs = self.policy(states)
+                    all_dist = Categorical(all_probs)
+                    all_new_logp = all_dist.log_prob(actions)
+                    # Approximate KL: E[(new_logp - old_logp)]  (unclipped ratio approx)
+                    approx_kl = (old_logps - all_new_logp).mean().item()
+                if approx_kl > 1.5 * self.kl_target:
+                    break  # stop updating — policy has moved far enough
+
             for b_states, b_actions, b_oldlogp, b_adv, b_ret in loader:
-                # TODO: compute policy loss, value loss, and entropy loss
+                # Compute new log-probabilities from the current (updated) policy
+                probs = self.policy(b_states)
+                dist = Categorical(probs)
+                new_logp = dist.log_prob(b_actions)
 
-                # TODO: compute new log probabilities by sampling actions from the policy distribution
-                new_logp = ...  # noqa: F841  # template placeholder
+                # Probability ratio r_t = π_θ(a|s) / π_θ_old(a|s)
+                ratio = torch.exp(new_logp - b_oldlogp)
 
-                # TODO: compute the ratio of new log probabilities to old log probabilities
+                # Clipped surrogate objective (PPO-clip):
+                #   L_CLIP = -E[min(r_t·A_t, clip(r_t, 1−ε, 1+ε)·A_t)]
+                surr1 = ratio * b_adv
+                surr2 = torch.clamp(ratio, 1.0 - self.clip_eps, 1.0 + self.clip_eps) * b_adv
+                policy_loss = -torch.min(surr1, surr2).mean()
 
-                # TODO: compute the clipped surrogate loss using the clipped objective
-                policy_loss = ...  # template placeholder
+                # Value loss: MSE between V(s) and GAE returns
+                value_loss = ((self.value_fn(b_states).squeeze(-1) - b_ret) ** 2).mean()
 
-                # TODO: compute value loss using mean squared error
-                value_loss = ...  # template placeholder
-
-                # TODO: compute entropy loss using the distribution's entropy
-                entropy_loss = ...  # template placeholder
+                # Entropy loss (negated so maximising entropy → negative coefficient)
+                entropy_loss = -dist.entropy().mean()
 
                 loss = (
                     policy_loss
@@ -188,7 +255,7 @@ class PPOAgent(AbstractAgent):
                     )
 
             # PPO update
-            policy_loss, value_loss, entropy_loss = self.update(trajectory)
+            policy_loss, value_loss, entropy_loss = self.update(trajectory, step_count)
             total_return = sum(t[4] for t in trajectory)
             print(
                 f"[Train] Step {step_count:6d} Return {total_return:5.1f} Policy Loss {policy_loss:.3f} Value Loss {value_loss:.3f} Entropy Loss {entropy_loss:.3f}"
@@ -230,6 +297,10 @@ def main(cfg: DictConfig) -> None:
         vf_coef=cfg.agent.vf_coef,
         seed=cfg.seed,
         hidden_size=cfg.agent.hidden_size,
+        lr_anneal=cfg.agent.get("lr_anneal", True),
+        total_steps=cfg.train.total_steps,
+        kl_target=cfg.agent.get("kl_target", 0.01),
+        use_kl_stopping=cfg.agent.get("use_kl_stopping", True),
     )
     agent.train(
         cfg.train.total_steps,
